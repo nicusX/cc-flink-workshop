@@ -1,4 +1,4 @@
-# Flink SQL Workshop
+# Lab 1
 
 ### Understanding Flink SQL & Query Execution
 

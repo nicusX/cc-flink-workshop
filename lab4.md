@@ -52,7 +52,28 @@ GROUP BY city;
 Primary key differs from upsert key
 https://docs.confluent.io/cloud/current/flink/how-to-guides/resolve-common-query-problems.html
 
-Join transactions with customer info.
+Create a test table
+```
+CREATE TABLE city_spend_report(
+  total_spent DOUBLE,
+  city STRING,
+  PRIMARY KEY(`total_spent`) NOT ENFORCED
+)
+```
+Insert with a primary key mismatch
+```
+INSERT INTO city_spend_report
+  SELECT 
+    SUM(t.amount),
+    c.city
+FROM transactions_faker t
+JOIN customers_pk c ON t.account_number = c.account_number
+GROUP BY c.city;
+```
+
+Join transactions with customer info. Produce Append changelog.
+https://docs.confluent.io/cloud/current/flink/how-to-guides/combine-and-track-most-recent-records.html
+
 Full outer join 
 ```
 SELECT 

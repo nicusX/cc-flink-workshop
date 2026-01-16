@@ -126,16 +126,6 @@ record_headers MAP<STRING, BYTES> METADATA FROM 'headers',
 
 `SELECT * from customers_pk`
 
-Change the changelog mode to Append
-
-``ALTER TABLE `customers_pk` SET ('changelog.mode' = 'append');``
-
-`SELECT * from customers_pk`
-
-Change it back to Upsert
-
-``ALTER TABLE `customers_pk` SET ('changelog.mode' = 'upsert');``
-
 Change isolation level to read uncommitted data. 
 
 ``ALTER TABLE `customers_pk` SET ('kafka.consumer.isolation-level'='read-uncommitted')``

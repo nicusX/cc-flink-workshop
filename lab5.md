@@ -73,11 +73,12 @@ SELECT * FROM `dlq_topic`
 #### Carry Over Offset
 https://docs.confluent.io/cloud/current/flink/operate-and-deploy/carry-over-offsets.html
 
-Create new city_spend_report_carryover table
+Create new city_spend_report_carryover table with added column and new primary key
 ```
 CREATE TABLE city_spend_report_carryover(
   city STRING,
   total_spent DOUBLE,
+  total_transactions INT,
   PRIMARY KEY(`city`) NOT ENFORCED
 )
 ```
@@ -86,12 +87,16 @@ Find the old Insert Into statement for city_spend_report table. If stopped check
 Migrate it to the new statement version
 ```
 SET 'sql.tables.initial-offset-from'  = 'workshop-f7290c47-5701-4cde-9ec0-a4b047e61c1c';
-SET 'client.statement-name' = 'city-state-report-v2-statement';
+SET 'client.statement-name' = 'city-state-report-v1-statement';
 INSERT INTO city_spend_report_carryover
   SELECT 
     c.city,
-    SUM(t.amount) AS total_spent
+    SUM(t.amount) AS total_spent,
+    CAST (COUNT(t.amount) AS INT) AS total_transactions 
 FROM transactions_faker t
 JOIN customers_pk c ON t.account_number = c.account_number
 GROUP BY c.city;
 ```
+
+Only new cities should be displayed
+`SELECT * FROM city_spend_report_carryover`

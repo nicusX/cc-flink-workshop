@@ -73,11 +73,17 @@ SELECT * FROM `dlq_topic`
 #### Carry Over Offset
 https://docs.confluent.io/cloud/current/flink/operate-and-deploy/carry-over-offsets.html
 
-set 'client.statement-name' = 'initial-statement-6';
-
+Create new trasactions_materialized table with transaction data from the faker
 ```
-CREATE TABLE carryover
-  WITH ('kafka.consumer.isolation-level'='read-uncommitted')
-  AS
-SELECT *,`offset` FROM stocks
+CREATE TABLE trasactions_materialized AS
+SELECT * FROM `transactions_faker`;
+```
+
+Stop the Statement and check for the latest offsets.
+Migrate it to the new version from the previous CTAS
+```
+SET 'sql.tables.initial-offset-from'  = 'workshop-988cdb34-58a1-4331-b79d-02b829b587ae';
+SET 'client.statement-name' = 'my-new-statement123';
+CREATE TABLE trasactions_materialized_carryover AS
+SELECT * FROM `trasactions_materialized`;
 ```

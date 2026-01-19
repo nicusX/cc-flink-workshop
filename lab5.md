@@ -73,17 +73,25 @@ SELECT * FROM `dlq_topic`
 #### Carry Over Offset
 https://docs.confluent.io/cloud/current/flink/operate-and-deploy/carry-over-offsets.html
 
-Create new trasactions_materialized table with transaction data from the faker
+Create new city_spend_report_carryover table
 ```
-CREATE TABLE trasactions_materialized AS
-SELECT * FROM `transactions_faker`;
+CREATE TABLE city_spend_report_carryover(
+  city STRING,
+  total_spent DOUBLE,
+  PRIMARY KEY(`city`) NOT ENFORCED
+)
 ```
 
-Stop the Statement and check for the latest offsets.
-Migrate it to the new version from the previous CTAS
+Find the old Insert Into statement for city_spend_report table. If stopped check for the latest offsets of customers_pk.
+Migrate it to the new statement version
 ```
-SET 'sql.tables.initial-offset-from'  = 'workshop-988cdb34-58a1-4331-b79d-02b829b587ae';
-SET 'client.statement-name' = 'my-new-statement123';
-CREATE TABLE trasactions_materialized_carryover AS
-SELECT * FROM `trasactions_materialized`;
+SET 'sql.tables.initial-offset-from'  = 'workshop-f7290c47-5701-4cde-9ec0-a4b047e61c1c';
+SET 'client.statement-name' = 'city-state-report-v2-statement';
+INSERT INTO city_spend_report_carryover
+  SELECT 
+    c.city,
+    SUM(t.amount) AS total_spent
+FROM transactions_faker t
+JOIN customers_pk c ON t.account_number = c.account_number
+GROUP BY c.city;
 ```

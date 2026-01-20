@@ -175,9 +175,9 @@ SELECT
   COUNT(*) AS total_tx
 FROM
   SESSION(
-    TABLE `transactions_faker` PARTITION BY merchant, 
-    DESCRIPTOR(`timestamp`), 
-    INTERVAL '5' SECONDS) 
+    DATA => TABLE `transactions_faker` PARTITION BY merchant, 
+    TIMECOL => DESCRIPTOR(`timestamp`), 
+    GAP => INTERVAL '5' SECONDS) 
 GROUP BY
   window_start,
   window_end,

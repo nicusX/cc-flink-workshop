@@ -167,20 +167,17 @@ GROUP BY
 ```
 
 #### SESSION WINDOW GROUP BY
-Count failed transactions in merchant sessions. Session Gap is 2 seconds
+Count transactions in merchant sessions. Session Gap is 5 seconds
 ```
 SELECT
-  window_start,
-  window_end,
+  TIMESTAMPDIFF(SECOND, window_start, window_end) AS sec_duration,
   merchant,
-  COUNT(*) AS total_tx_failed
+  COUNT(*) AS total_tx
 FROM
   SESSION(
-    TABLE `transactions_faker`,
-    DESCRIPTOR(`timestamp`),
-    INTERVAL '2' SECONDS
-  )
-WHERE transaction_type = 'payment' AND status = 'Failed'
+    TABLE `transactions_faker` PARTITION BY merchant, 
+    DESCRIPTOR(`timestamp`), 
+    INTERVAL '5' SECONDS) 
 GROUP BY
   window_start,
   window_end,

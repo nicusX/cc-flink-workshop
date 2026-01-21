@@ -136,7 +136,7 @@ Change changelog modes
 Changes the scan range on the table
 ```
 ALTER TABLE customers_pk SET (
-  'scan.startup.mode' = 'latest-offsets',
+  'scan.startup.mode' = 'latest-offset'
 );
 ```
 

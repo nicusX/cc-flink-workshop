@@ -1,12 +1,21 @@
 # Lab 1
 
-### Understanding Flink SQL & Query Execution
+## Understanding Flink SQL & Query Execution
 
-Powered by Faker connector https://docs.confluent.io/cloud/current/flink/how-to-guides/custom-sample-data.html
+### Generate fake data using the Faker connector
+
+The [Faker connector](https://docs.confluent.io/cloud/current/flink/how-to-guides/custom-sample-data.html) allows you to generate semi-random fake data matching a specific schema.
 
 With a faker table, data is not being generated continuously. Instead, when a statement is started that reads from the sample data, it is instantiated in this specific context and generates data only to be read by this specific statement. If multiple statements read from the same faker table at the same time, they get different data.
 
-```
+
+#### Transactions generator
+
+Let's create a `transactions_faker` table.
+
+1. Create the table
+
+```sql
 CREATE TABLE `transactions_faker` (
   `txn_id` VARCHAR(36) NOT NULL,
   `account_number` VARCHAR(255),
@@ -23,9 +32,9 @@ WITH (
   'changelog.mode' = 'append',
   'connector' = 'faker',
   'fields.account_number.expression' = 'ACC#{Number.numberBetween ''1000000'',''1000010''}',
-  'fields.amount.expression' = '#{NUMBER.numberBetween ''10'',''1000''}',
+  'fields.amount.expression' = '#{Number.numberBetween ''10'',''1000''}',
   'fields.currency.expression' = '#{Options.option ''USD'',''EUR'',''INR'',''GBP'',''JPY''}',
-  'fields.location.expression' = '#{Options.option ''New York'',''Los Angeles'',''Chicago'',''Charlotte '',''San Francisco'',''Indianapolis'',''Seattle'',''Denver'',''Washington'',''Boston'',''El Paso'',''Nashville'',''Detroit'',''Oklahoma City'',''Portland'',''Las Vegas'',''Memphis'',''Louisville'',''Baltimore''}',
+  'fields.location.expression' = '#{Options.option ''New York'',''Los Angeles'',''Chicago'',''Charlotte'',''San Francisco'',''Indianapolis'',''Seattle'',''Denver'',''Washington'',''Boston'',''El Paso'',''Nashville'',''Detroit'',''Oklahoma City'',''Portland'',''Las Vegas'',''Memphis'',''Louisville'',''Baltimore''}',
   'fields.merchant.expression' = '#{Options.option ''Walmart Inc.'', ''Amazon.com Inc.'', ''CVS Health'', ''Costco Wholesale Corporation'', ''Schwarz Group'', ''McKesson Corporation'', ''McDonalds Corporation'', ''Starbucks Corporation'', ''Cencora'', ''The Home Depot Inc.'', ''Yum! Brands'', ''The Kroger Co.'', ''Aldi Group'', ''Walgreens Boots Alliance'', ''Cardinal Health'', ''Subway'', ''JD.com Inc.'', ''Target Corporation'', ''Ahold Delhaize'', ''Lowe Companies Inc.''}',
   'fields.transaction_type.expression' = '#{Options.option ''payment'',''payment'', ''payment'' ,''refund'', ''withdrawal''}',
   'fields.status.expression' = '#{Options.option ''Successful'',''Successful'', ''Failed'' }',
@@ -34,21 +43,38 @@ WITH (
   'rows-per-second' = '3')
 ```
 
-Understand how table is created.
+2. Verify that the table has been created
 
-`SELECT * from transactions_faker`
-
-`SHOW CREATE TABLE transactions_faker`
-
-Check watermark value.
-
-`DESCRIBE EXTENDED transactions_faker`
-
-In case you need to recreate the table you can always drop it. 
-`DROP TABLE transactions_faker`
-
-
+```sql
+SHOW CREATE TABLE transactions_faker
 ```
+
+3. Describe the schema
+
+```sql
+DESCRIBE EXTENDED transactions_faker
+```
+
+In particular, check out the Watermark.
+
+4. Show the fake data
+
+```sql
+SELECT * FROM transactions_faker
+```
+
+This starts the data generation. The query keeps running and generating data until you hit `STOP`.
+
+
+> ⚠️ In case you need to recreate the table, drop it first before recreating: `DROP TABLE transactions_faker`
+
+#### Customers generator
+
+Similarly, let's create a `customers_faker` table.
+
+1. Create the table
+
+```sql
 CREATE TABLE `customers_faker` (
   `account_number` VARCHAR(2147483647) NOT NULL,
   `customer_name` VARCHAR(2147483647),
@@ -72,11 +98,41 @@ WITH (
   'rows-per-second' = '1'
 )
 ```
-`SELECT * from customers_faker`
 
-Verify the physical plan for the CTAS query.
+2. Verify data is generated
 
+```sql
+SELECT * FROM customers_faker
 ```
+
+---
+
+### Show the physical plan of a query
+
+We now want to write a query and analyze the query plan.
+
+In particular, we create a `CREATE TABLE AS SELECT` (CTAS) statement which
+1. Creates a new table, and
+2. Populates it with the result of a `SELECT` query
+
+This is our CTAS statement:
+
+```sql
+CREATE TABLE customers_pk (
+  PRIMARY KEY(account_number) NOT ENFORCED,
+  WATERMARK FOR `created_at` AS `created_at`  - INTERVAL '5' SECONDS
+)
+  WITH ('changelog.mode' = 'upsert')
+AS SELECT * FROM `customers_faker`
+```
+
+To analyze the query plan we use `EXPLAIN`. 
+Note that this is done **before** actually running the CTAS statement and creating the table.
+
+
+Show the physical plan for the CTAS query by executing the following statement (just prepend `EXPLAIN`):
+
+```sql
 EXPLAIN 
 CREATE TABLE customers_pk (
   PRIMARY KEY(account_number) NOT ENFORCED,
@@ -86,11 +142,30 @@ CREATE TABLE customers_pk (
 AS SELECT * FROM `customers_faker`
 ```
 
-Create a new table with primary key derived from the append table.
-Set idle timeout for all partitions
+As you can see, Flink shows the Physical Plan of the query, which comprises all the steps (or *Operators*) Flink will use to execute your query.
 
-```
+Observe how this statement will (1) read from the source `customers_faker` table, 
+(2) perform some row-level transformations, to add the watermark in this case, 
+and (3) sink to the `customers_pk` topic using the Primary Key (`account_number`) as message key.
+
+
+We will get back to query plans and operators later.
+
+Note that nothing really happens with your data when you execute `EXPLAIN`. No table or topic are created, no data is generated.
+
+---
+
+### Create Customers table with Primary Key
+
+Let's create the table representing Customers, using `account_number` as PK.
+
+We also set a short idle timeout (1 sec) for all partitions. We will cover idle partitions in more detail, later in this workshop. For now, just execute this setting as shown.
+
+1. Create the table
+
+```sql
 SET 'sql.tables.scan.idle-timeout' = '1s';
+
 CREATE TABLE customers_pk (
   PRIMARY KEY(account_number) NOT ENFORCED,
   WATERMARK FOR `created_at` AS `created_at`  - INTERVAL '5' SECONDS
@@ -99,19 +174,47 @@ CREATE TABLE customers_pk (
 AS SELECT * FROM `customers_faker`
 ```
 
-`SHOW CREATE TABLE customers_pk`
+Note that executing this statement starts a streaming Job which runs continuously until you stop it.
 
-`DESCRIBE EXTENDED customers_pk`
+This also automatically creates a new topic, called `customers_pk` in your cluster and schema in the Schema Registry.
 
-Switch to changelog mode output. 
+2. Verify details of table
 
-`SELECT * from customers_pk`
+You can view details of the table you just created, either showing the CREATE TABLE statement or describing the table.
 
-Add some metadata.
+> ⚠️ Execute these statements in a different panel from the one where you executed `CREATE TABLE customers_pk ...` to keep the previous job running. 
 
+```sql
+SHOW CREATE TABLE customers_pk
 ```
+
+```sql
+DESCRIBE EXTENDED customers_pk
+```
+
+3. Show the Customers changelog
+
+Execute the following query.
+
+```sql
+SELECT * FROM customers_pk
+```
+
+Switch to the *Changelog view* to show the `+I`, `+U`, and `-U` [changelog records](https://docs.confluent.io/cloud/current/flink/concepts/dynamic-tables.html#changelog-entries) sent to the topic every time the record of a given primary key is inserted or updated. Note that every update has two separate records, before (`-U`) and after (`+U`).
+
+Stop this query before proceeding.
+
+---
+
+### Altering table, adding metadata columns
+
+Let's alter our Customers table to add some new columns from the [metadata](https://docs.confluent.io/cloud/current/flink/reference/statements/create-table.html#flink-sql-metadata-columns) automatically available.
+
+1. Alter the table to add columns derived from metadata
+
+```sql
 ALTER TABLE customers_pk ADD (
-record_headers MAP<STRING, BYTES> METADATA FROM 'headers',
+  record_headers MAP<STRING, BYTES> METADATA FROM 'headers',
   record_leader_epoch INT METADATA FROM 'leader-epoch',
   record_offset BIGINT METADATA FROM 'offset',
   record_partition INT METADATA FROM 'partition',
@@ -122,14 +225,31 @@ record_headers MAP<STRING, BYTES> METADATA FROM 'headers',
   record_topic STRING METADATA FROM 'topic'
 );
 ```
-`DESCRIBE EXTENDED customers_pk`
 
-`SELECT * from customers_pk`
+> ⚠️ Note that you can only [alter a table](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#) adding metadata and computed columns, or to alter the watermark and properties. You cannot modify the schema.
 
-Change isolation level to read uncommitted data. 
+2. Describe the table to show the additional columns which have been added
 
-``ALTER TABLE `customers_pk` SET ('kafka.consumer.isolation-level'='read-uncommitted')``
+```sql
+DESCRIBE EXTENDED customers_pk
+```
 
-`SELECT * from customers_pk`
+3. Show the generated data again
 
+```sql
+SELECT * FROM customers_pk
+```
+
+4. Alter the table again, to change a property (isolation level)
+
+```sql
+ALTER TABLE `customers_pk` SET ('kafka.consumer.isolation-level'='read-uncommitted')
+```
+
+5. Show the generated data, again: stop the previous select and re-execute
+
+
+```sql
+SELECT * FROM customers_pk
+```
 

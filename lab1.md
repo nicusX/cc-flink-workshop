@@ -2,18 +2,21 @@
 
 ## Understanding Flink SQL & Query Execution
 
-### Generate fake data using the Faker connector
+In this lab you will learn how to execute Flink SQL statements to create and alter tables, and execute queries.
+You will also learn how to analyze the execution plan of a query before submitting it to Flink for execution.
+
+### 1 - Generate fake data using the Faker connector
 
 The [Faker connector](https://docs.confluent.io/cloud/current/flink/how-to-guides/custom-sample-data.html) allows you to generate semi-random fake data matching a specific schema.
 
 With a faker table, data is not being generated continuously. Instead, when a statement is started that reads from the sample data, it is instantiated in this specific context and generates data only to be read by this specific statement. If multiple statements read from the same faker table at the same time, they get different data.
 
 
-#### Transactions generator
+#### 1.1 - Transactions generator
 
-Let's create a `transactions_faker` table.
+Let's create the Faker source table for Transactions.
 
-1. Create the table
+Create the table:
 
 ```sql
 CREATE TABLE `transactions_faker` (
@@ -43,13 +46,13 @@ WITH (
   'rows-per-second' = '3')
 ```
 
-2. Verify that the table has been created
+Verify that the table has been created:
 
 ```sql
 SHOW CREATE TABLE transactions_faker
 ```
 
-3. Describe the schema
+Describe the schema:
 
 ```sql
 DESCRIBE EXTENDED transactions_faker
@@ -57,7 +60,7 @@ DESCRIBE EXTENDED transactions_faker
 
 In particular, check out the Watermark.
 
-4. Show the fake data
+Show the fake data:
 
 ```sql
 SELECT * FROM transactions_faker
@@ -68,11 +71,11 @@ This starts the data generation. The query keeps running and generating data unt
 
 > ⚠️ In case you need to recreate the table, drop it first before recreating: `DROP TABLE transactions_faker`
 
-#### Customers generator
+#### 1.2 - Customers generator
 
-Similarly, let's create a `customers_faker` table.
+Similarly, let's create the Faker source table for Customers.
 
-1. Create the table
+Create the table:
 
 ```sql
 CREATE TABLE `customers_faker` (
@@ -99,7 +102,7 @@ WITH (
 )
 ```
 
-2. Verify data is generated
+Verify data is generated:
 
 ```sql
 SELECT * FROM customers_faker
@@ -107,7 +110,7 @@ SELECT * FROM customers_faker
 
 ---
 
-### Show the physical plan of a query
+### 2 - Show the physical plan of a query
 
 We now want to write a query and analyze the query plan.
 
@@ -155,13 +158,13 @@ Note that nothing really happens with your data when you execute `EXPLAIN`. No t
 
 ---
 
-### Create Customers table with Primary Key
+### 3 - Create Customers table with Primary Key
 
 Let's create the table representing Customers, using `account_number` as PK.
 
 We also set a short idle timeout (1 sec) for all partitions. We will cover idle partitions in more detail, later in this workshop. For now, just execute this setting as shown.
 
-1. Create the table
+Create the table:
 
 ```sql
 SET 'sql.tables.scan.idle-timeout' = '1s';
@@ -178,7 +181,7 @@ Note that executing this statement starts a streaming Job which runs continuousl
 
 This also automatically creates a new topic, called `customers_pk` in your cluster and schema in the Schema Registry.
 
-2. Verify details of table
+Verify details of table:
 
 You can view details of the table you just created, either showing the CREATE TABLE statement or describing the table.
 
@@ -192,7 +195,7 @@ SHOW CREATE TABLE customers_pk
 DESCRIBE EXTENDED customers_pk
 ```
 
-3. Show the Customers changelog
+Show the Customers changelog:
 
 Execute the following query.
 
@@ -206,11 +209,11 @@ Stop this query before proceeding.
 
 ---
 
-### Altering table, adding metadata columns
+### 4 - Altering table, adding metadata columns
 
 Let's alter our Customers table to add some new columns from the [metadata](https://docs.confluent.io/cloud/current/flink/reference/statements/create-table.html#flink-sql-metadata-columns) automatically available.
 
-1. Alter the table to add columns derived from metadata
+Alter the table to add columns derived from metadata:
 
 ```sql
 ALTER TABLE customers_pk ADD (
@@ -228,25 +231,25 @@ ALTER TABLE customers_pk ADD (
 
 > ⚠️ Note that you can only [alter a table](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#) adding metadata and computed columns, or to alter the watermark and properties. You cannot modify the schema.
 
-2. Describe the table to show the additional columns which have been added
+Describe the table to show the additional columns which have been added:
 
 ```sql
 DESCRIBE EXTENDED customers_pk
 ```
 
-3. Show the generated data again
+Show the generated data again:
 
 ```sql
 SELECT * FROM customers_pk
 ```
 
-4. Alter the table again, to change a property (isolation level)
+Alter the table again, to change a property (isolation level):
 
 ```sql
 ALTER TABLE `customers_pk` SET ('kafka.consumer.isolation-level'='read-uncommitted')
 ```
 
-5. Show the generated data, again: stop the previous select and re-execute
+Show the generated data, again (stop the previous select and re-execute):
 
 
 ```sql

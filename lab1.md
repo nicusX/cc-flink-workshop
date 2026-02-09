@@ -11,7 +11,8 @@ In the *SQL Workspace*, select the default Catalog and Database. This allows you
 
 You can always use fully-qualified references in the form `<catalog>.<database>.<table>`.
 
-Note that in this workshop, table and field names are always quoted using backticks (`). This is required to preserve name case, avoid conflicts with reserved words, and allow names that include characters other than [A‑Za‑z0‑9_].
+> Note that in this workshop, table and field names are always quoted using backticks (`). This is required to preserve name case, avoid conflicts with reserved words, and allow names that include characters other than [A‑Za‑z0‑9_]. 
+> Quoting is not strictly required when the object name only contains lowercase alphanumeric characers and underscore.
 
 ### 1 - Generate fake data using the Faker connector
 
@@ -57,13 +58,13 @@ WITH (
 Verify that the table has been created:
 
 ```sql
-SHOW CREATE TABLE transactions_faker
+SHOW CREATE TABLE `transactions_faker`
 ```
 
 Describe the schema:
 
 ```sql
-DESCRIBE EXTENDED transactions_faker
+DESCRIBE EXTENDED `transactions_faker`
 ```
 
 In particular, check out the Watermark.
@@ -71,13 +72,13 @@ In particular, check out the Watermark.
 Show the fake data:
 
 ```sql
-SELECT * FROM transactions_faker
+SELECT * FROM `transactions_faker`
 ```
 
 This starts the data generation. The query keeps running and generating data until you hit `STOP`.
 
 
-> ⚠️ In case you need to recreate the table, drop it first before recreating: `DROP TABLE transactions_faker`
+> ⚠️ In case you need to recreate the table, drop it first before recreating: `DROP TABLE `transactions_faker``
 
 #### 1.2 - Customers generator
 
@@ -113,7 +114,7 @@ WITH (
 Verify data is generated:
 
 ```sql
-SELECT * FROM customers_faker
+SELECT * FROM `customers_faker`
 ```
 
 ---
@@ -129,9 +130,9 @@ In particular, we create a `CREATE TABLE AS SELECT` (CTAS) statement which
 This is our CTAS statement:
 
 ```sql
-CREATE TABLE customers_pk (
-  PRIMARY KEY(account_number) NOT ENFORCED,
-  WATERMARK FOR `created_at` AS `created_at`  - INTERVAL '5' SECONDS
+CREATE TABLE `customers_pk` (
+  PRIMARY KEY(`account_number`) NOT ENFORCED,
+  WATERMARK FOR `created_at` AS `created_at` - INTERVAL '5' SECONDS
 )
   WITH ('changelog.mode' = 'upsert')
 AS SELECT * FROM `customers_faker`
@@ -144,10 +145,10 @@ Note that this is done **before** actually running the CTAS statement and creati
 Show the physical plan for the CTAS query by executing the following statement (just prepend `EXPLAIN`):
 
 ```sql
-EXPLAIN 
-CREATE TABLE customers_pk (
-  PRIMARY KEY(account_number) NOT ENFORCED,
-  WATERMARK FOR `created_at` AS `created_at`  - INTERVAL '5' SECONDS
+EXPLAIN
+CREATE TABLE `customers_pk` (
+  PRIMARY KEY(`account_number`) NOT ENFORCED,
+  WATERMARK FOR `created_at` AS `created_at` - INTERVAL '5' SECONDS
 )
   WITH ('changelog.mode' = 'upsert')
 AS SELECT * FROM `customers_faker`
@@ -196,11 +197,11 @@ You can view details of the table you just created, either showing the CREATE TA
 > ⚠️ Execute these statements in a different panel from the one where you executed `CREATE TABLE customers_pk ...` to keep the previous job running. 
 
 ```sql
-SHOW CREATE TABLE customers_pk
+SHOW CREATE TABLE `customers_pk`
 ```
 
 ```sql
-DESCRIBE EXTENDED customers_pk
+DESCRIBE EXTENDED `customers_pk`
 ```
 
 Show the Customers changelog:
@@ -208,7 +209,7 @@ Show the Customers changelog:
 Execute the following query.
 
 ```sql
-SELECT * FROM customers_pk
+SELECT * FROM `customers_pk`
 ```
 
 Switch to the *Changelog view* to show the `+I`, `+U`, and `-U` [changelog records](https://docs.confluent.io/cloud/current/flink/concepts/dynamic-tables.html#changelog-entries) sent to the topic every time the record of a given primary key is inserted or updated. Note that every update has two separate records, before (`-U`) and after (`+U`).
@@ -224,16 +225,16 @@ Let's alter our Customers table to add some new columns from the [metadata](http
 Alter the table to add columns derived from metadata:
 
 ```sql
-ALTER TABLE customers_pk ADD (
-  record_headers MAP<STRING, BYTES> METADATA FROM 'headers',
-  record_leader_epoch INT METADATA FROM 'leader-epoch',
-  record_offset BIGINT METADATA FROM 'offset',
-  record_partition INT METADATA FROM 'partition',
-  record_key BYTES METADATA FROM 'raw-key',
-  record_value BYTES METADATA FROM 'raw-value',
-  record_timestamp TIMESTAMP_LTZ(3) METADATA FROM 'timestamp',
-  record_timestamp_type STRING METADATA FROM 'timestamp-type',
-  record_topic STRING METADATA FROM 'topic'
+ALTER TABLE `customers_pk` ADD (
+  `record_headers` MAP<STRING, BYTES> METADATA FROM 'headers',
+  `record_leader_epoch` INT METADATA FROM 'leader-epoch',
+  `record_offset` BIGINT METADATA FROM 'offset',
+  `record_partition` INT METADATA FROM 'partition',
+  `record_key` BYTES METADATA FROM 'raw-key',
+  `record_value` BYTES METADATA FROM 'raw-value',
+  `record_timestamp` TIMESTAMP_LTZ(3) METADATA FROM 'timestamp',
+  `record_timestamp_type` STRING METADATA FROM 'timestamp-type',
+  `record_topic` STRING METADATA FROM 'topic'
 );
 ```
 
@@ -242,13 +243,13 @@ ALTER TABLE customers_pk ADD (
 Describe the table to show the additional columns which have been added:
 
 ```sql
-DESCRIBE EXTENDED customers_pk
+DESCRIBE EXTENDED `customers_pk`
 ```
 
 Show the generated data again:
 
 ```sql
-SELECT * FROM customers_pk
+SELECT * FROM `customers_pk`
 ```
 
 Alter the table again, to change a property (isolation level):
@@ -261,6 +262,6 @@ Show the generated data, again (stop the previous select and re-execute):
 
 
 ```sql
-SELECT * FROM customers_pk
+SELECT * FROM `customers_pk`
 ```
 

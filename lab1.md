@@ -5,6 +5,14 @@
 In this lab you will learn how to execute Flink SQL statements to create and alter tables, and execute queries.
 You will also learn how to analyze the execution plan of a query before submitting it to Flink for execution.
 
+### 0 - Working with table references
+
+In the *SQL Workspace*, select the default Catalog and Database. This allows you to refer to tables just by table name.
+
+You can always use fully-qualified references in the form `<catalog>.<database>.<table>`.
+
+Note that in this workshop, table and field names are always quoted using backticks (`). This is required to preserve name case, avoid conflicts with reserved words, and allow names that include characters other than [A‑Za‑z0‑9_].
+
 ### 1 - Generate fake data using the Faker connector
 
 The [Faker connector](https://docs.confluent.io/cloud/current/flink/how-to-guides/custom-sample-data.html) allows you to generate semi-random fake data matching a specific schema.

@@ -12,7 +12,7 @@ In the *SQL Workspace*, select the default Catalog and Database. This allows you
 You can always use fully-qualified references in the form `<catalog>.<database>.<table>`.
 
 > Note that in this workshop, table and field names are always quoted using backticks (`). This is required to preserve name case, avoid conflicts with reserved words, and allow names that include characters other than [A‑Za‑z0‑9_]. 
-> Quoting is not strictly required when the object name only contains lowercase alphanumeric characers and underscore.
+> Quoting is not strictly required when the object name only contains lowercase alphanumeric characters and underscore.
 
 ### 1 - Generate fake data using the Faker connector
 
@@ -21,7 +21,7 @@ The [Faker connector](https://docs.confluent.io/cloud/current/flink/how-to-guide
 With a faker table, data is not being generated continuously. Instead, when a statement is started that reads from the sample data, it is instantiated in this specific context and generates data only to be read by this specific statement. If multiple statements read from the same faker table at the same time, they get different data.
 
 
-#### 1.1 - Transactions generator
+#### 1.1 - Transactions fake data generator
 
 Let's create the Faker source table for Transactions.
 
@@ -61,15 +61,15 @@ Verify that the table has been created:
 SHOW CREATE TABLE `transactions_faker`
 ```
 
-Describe the schema:
+##### Describe the schema
 
 ```sql
 DESCRIBE EXTENDED `transactions_faker`
 ```
 
-In particular, check out the Watermark.
+In particular, check out the Watermark in the `timestamp` column.
 
-Show the fake data:
+##### Show the fake data
 
 ```sql
 SELECT * FROM `transactions_faker`
@@ -78,9 +78,9 @@ SELECT * FROM `transactions_faker`
 This starts the data generation. The query keeps running and generating data until you hit `STOP`.
 
 
-> ⚠️ In case you need to recreate the table, drop it first before recreating: `DROP TABLE `transactions_faker``
+> ⚠️ In case you need to recreate the table, drop it first before recreating: `DROP TABLE transactions_faker`
 
-#### 1.2 - Customers generator
+#### 1.2 - Customers fake data generator
 
 Similarly, let's create the Faker source table for Customers.
 
@@ -102,7 +102,7 @@ WITH (
   'connector' = 'faker',
   'fields.account_number.expression' = 'ACC#{Number.numberBetween ''1000000'',''1000010''}',
   'fields.city.expression' = '#{Address.city}',
-   'fields.customer_name.expression' = '#{Name.fullName}',
+  'fields.customer_name.expression' = '#{Name.fullName}',
   'fields.date_of_birth.expression' = '#{date.birthday ''18'',''50''}',
   'fields.phone_number.expression' = '#{PhoneNumber.cellPhone}',
   'fields.email.expression' = '#{Internet.emailAddress}',
@@ -111,7 +111,7 @@ WITH (
 )
 ```
 
-Verify data is generated:
+##### Verify data is generated
 
 ```sql
 SELECT * FROM `customers_faker`
@@ -127,7 +127,7 @@ In particular, we create a `CREATE TABLE AS SELECT` (CTAS) statement which
 1. Creates a new table, and
 2. Populates it with the result of a `SELECT` query
 
-This is our CTAS statement:
+This is the CTAS statement we will execute (⚠️ *do not execute the statement for now*):
 
 ```sql
 CREATE TABLE `customers_pk` (
@@ -138,11 +138,9 @@ CREATE TABLE `customers_pk` (
 AS SELECT * FROM `customers_faker`
 ```
 
-To analyze the query plan we use `EXPLAIN`. 
-Note that this is done **before** actually running the CTAS statement and creating the table.
+Before executing it, we want to analyze the query plan using `EXPLAIN`. 
 
-
-Show the physical plan for the CTAS query by executing the following statement (just prepend `EXPLAIN`):
+Just prepend `EXPLAIN` to the statement to show the query plan (⚠️ execute the following SQL):
 
 ```sql
 EXPLAIN
@@ -154,45 +152,47 @@ CREATE TABLE `customers_pk` (
 AS SELECT * FROM `customers_faker`
 ```
 
+
 As you can see, Flink shows the Physical Plan of the query, which comprises all the steps (or *Operators*) Flink will use to execute your query.
 
 Observe how this statement will (1) read from the source `customers_faker` table, 
 (2) perform some row-level transformations, to add the watermark in this case, 
 and (3) sink to the `customers_pk` topic using the Primary Key (`account_number`) as message key.
 
+For more details about reading the query plan, see [EXPLAIN Statement in Confluent Cloud for Apache Flink](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html) documentation page.
 
-We will get back to query plans and operators later.
+We will get back to query plans and operators later. 
 
 Note that nothing really happens with your data when you execute `EXPLAIN`. No table or topic are created, no data is generated.
+
+> ⚠️ If you accidentally ran the `CREATE TABLE ... AS SELECT ...`, stop the running statement and drop the table before proceeding
+> using `DROP TABLE customers_pk`. 
 
 ---
 
 ### 3 - Create Customers table with Primary Key
 
-Let's create the table representing Customers, using `account_number` as PK.
+We will now execute the *CTAS* (*Create Table As Select*) statement we explained in the previous section to create the table representing Customers, using `account_number` as PK.
 
-We also set a short idle timeout (1 sec) for all partitions. We will cover idle partitions in more detail, later in this workshop. For now, just execute this setting as shown.
+We also set a short idle timeout (1 sec) for all partitions. 
+We will cover idle partitions in more detail, later in this workshop. For now, just execute this setting as shown.
 
-Create the table:
+Execute the following CTAS statement:
 
 ```sql
 SET 'sql.tables.scan.idle-timeout' = '1s';
 
-CREATE TABLE customers_pk (
-  PRIMARY KEY(account_number) NOT ENFORCED,
+CREATE TABLE `customers_pk` (
+  PRIMARY KEY(`account_number`) NOT ENFORCED,
   WATERMARK FOR `created_at` AS `created_at`  - INTERVAL '5' SECONDS
 )
   WITH ('changelog.mode' = 'upsert')
 AS SELECT * FROM `customers_faker`
 ```
 
-Note that executing this statement starts a streaming Job which runs continuously until you stop it.
+##### Verify details of table
 
-This also automatically creates a new topic, called `customers_pk` in your cluster and schema in the Schema Registry.
-
-Verify details of table:
-
-You can view details of the table you just created, either showing the CREATE TABLE statement or describing the table.
+You can view details of the table you just created by showing the CREATE TABLE statement.
 
 > ⚠️ Execute these statements in a different panel from the one where you executed `CREATE TABLE customers_pk ...` to keep the previous job running. 
 
@@ -200,13 +200,15 @@ You can view details of the table you just created, either showing the CREATE TA
 SHOW CREATE TABLE `customers_pk`
 ```
 
+You can also describe the table:
+
 ```sql
 DESCRIBE EXTENDED `customers_pk`
 ```
 
-Show the Customers changelog:
+##### Show the Customers changelog
 
-Execute the following query.
+Execute the following query:
 
 ```sql
 SELECT * FROM `customers_pk`
@@ -216,9 +218,26 @@ Switch to the *Changelog view* to show the `+I`, `+U`, and `-U` [changelog recor
 
 Stop this query before proceeding.
 
+> **CTAS statements, automatic topic and schema creation**
+>
+> CTAS ("Create Table As Select") statements are a shortcut for `CREATE TABLE ...` + `INSERT INTO ... SELECT ...`.
+> 
+> Flink infers the resulting schema and creates the topic for the destination table. 
+> 
+> It also starts a continuously running statement which populates the destination table and writes data into the topic. 
+> You can see the statement in *Environments > [select environment] > Flink > Flink statements*.
+>
+> Note that, when we create this new table, a topic called `customers_pk` is also created in the cluster. 
+> Conversely, when we created the two *faker* tables, no topic and no schema were created.
+> 
+> You can find the new topic in *Environments > [select environment] > Clusters > [select cluster] > Topics*
+
+
 ---
 
-### 4 - Altering table, adding metadata columns
+### 4 - Alter a table
+
+#### Add metadata columns
 
 Let's alter our Customers table to add some new columns from the [metadata](https://docs.confluent.io/cloud/current/flink/reference/statements/create-table.html#flink-sql-metadata-columns) automatically available.
 
@@ -238,30 +257,53 @@ ALTER TABLE `customers_pk` ADD (
 );
 ```
 
-> ⚠️ Note that you can only [alter a table](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#) adding metadata and computed columns, or to alter the watermark and properties. You cannot modify the schema.
+> ⚠️ Note that you can only [alter a table](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#) 
+> to add metadata and computed columns, or to alter the watermark and properties. You cannot modify the schema.
 
-Describe the table to show the additional columns which have been added:
+##### Describe the table to show the column we added
 
 ```sql
 DESCRIBE EXTENDED `customers_pk`
 ```
 
-Show the generated data again:
+##### Show the generated data
+
 
 ```sql
 SELECT * FROM `customers_pk`
 ```
 
-Alter the table again, to change a property (isolation level):
+Observe the query output. In particular the `record_timestamp` column.
+
+As you can see, the results are delayed up to 60 seconds.
+This is because the default *Exactly-Once* delivery guarantee leverages Kafka transactions and Flink checkpoints, which commit
+data written to the topic roughly every minute.
+
+For more details about delivery guarantees, see [Delivery Guarantees and Latency in Confluent Cloud for Apache Flink](https://docs.confluent.io/cloud/current/flink/concepts/delivery-guarantees.html).
+
+We can modify the delivery guarantees by changing the isolation level on the table, to allow reading uncommitted data.
+
+#### Alter table property: change isolation level
+
+Isolation level is controlled by the `kafka.consumer.isolation-level` table property. 
+Let's alter the table again to change it to `read-uncommitted`.
 
 ```sql
 ALTER TABLE `customers_pk` SET ('kafka.consumer.isolation-level'='read-uncommitted')
 ```
 
-Show the generated data, again (stop the previous select and re-execute):
+##### Show the data again
 
+Show the generated data, again (stop the previous `SELECT...` and re-execute):
 
 ```sql
 SELECT * FROM `customers_pk`
 ```
+
+Observe the new query output, and in particular the `record_timestamp` column.
+
+You can see now that data is refreshed more frequently and the delay is substantially lower than 60 seconds.
+
+> ⚠️ You can still see a delay of a few seconds. This is due to the refresh rate of the UI. 
+> Records are actually read from the topic with negligible delay, without waiting for the transaction commit.
 

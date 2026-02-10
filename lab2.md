@@ -1,17 +1,16 @@
-# Lab 2 - part 1
+# Lab 2 - part 1: Joins
 
 In this lab we will examine state-intensive operations such as joins and aggregations.
 
-## Joins
-
-In the first part of this lab we will explore some of the most commonly used join patterns.
+In the first part we will explore some of the most commonly used join patterns.
 We will also use `EXPLAIN` to understand when a statement may be state-intensive and potentially cause stability and performance issues in the long term.
 
-### 0 - Generated data 
+
+### Prerequisites
 
 In this lab we will be using the customers and transaction fake data created in [Lab 1](./lab1.md).
 
-If you destroyed those tables, go back to [Lab 1](./lab1.md) and create both `transactons_faker` and `customers_faker` tables.
+If you destroyed those tables, go back to [Lab 1](./lab1.md) and create both `transactions_faker` and `customers_faker` tables.
 
 
 ### 1 - Temporal Join
@@ -21,8 +20,8 @@ with the versioned dimension table `customers_pk` (right input), representing th
 
 
 > This statement uses the `customers_pk` from [Lab 1](./lab1.md).
-> Make sure the CTAS statement which defines and populate `customers_pk` is still running. 
-> If you have stopped it, no new data are generated. Drop the `customers_pk` table and re-created it. 
+> Make sure the CTAS statement which defines and populates `customers_pk` is still running.
+> If you have stopped it, no new data is generated. Drop the `customers_pk` table and re-create it. 
 > Keep that statement running while you experiment with the next query.
 
 
@@ -63,9 +62,7 @@ JOIN customers_faker AS c
 WHERE t.`timestamp` BETWEEN c.created_at AND c.created_at + INTERVAL '10' SECOND;
 ```
 
-In this case, a transaction is joined with the corresponding customer record created between 10 seconds
-**before** the transaction and the transaction timestamp 
-(or, put the other way around, the transaction `timestamp` must lay between the customer record creation time and 10 seconds later).
+In this case, a transaction is joined with customer records where the customer's `created_at` timestamp falls within a 10-second window ending at the transaction timestamp. In other words, the customer must have been created between 10 seconds before the transaction and the exact moment of the transaction.
 
 > ⚠️ Note that the interval join does not require any primary key. In fact, we can join directly `transactions_faker` with `customers_faker`.
 
@@ -103,11 +100,11 @@ State size: high
 State TTL: never
 ```
 
-This hightlights an operator potentially state-intensive which has no TTL applied.
+This highlights an operator potentially state-intensive which has no TTL applied.
 
-> Note: the Inteval join we tested before also has a state-intensive operator with no TTL
+> Note: the Interval join we tested before also has a state-intensive operator with no TTL
 
-Before learning how to set a TTL, lets see another type of join.
+Before learning how to set a TTL, let's see another type of join.
 
 ### 3 - Regular Joins (without TTL)
 
@@ -151,7 +148,7 @@ JOIN customers_faker AS c
     ON t.account_number = c.account_number;
 ```
 
-In the `== Physical Details ==` you will notice a state-intenstive operator without TTL:
+In the `== Physical Details ==` you will notice a state-intensive operator without TTL:
 
 ```
 [8] StreamJoin
@@ -180,7 +177,7 @@ JOIN customers_faker AS c
     ON t.account_number = c.account_number;
 ```
 
-Running this statement you will notice no warning is issues.
+Running this statement you will notice no warning is issued.
 
 #### EXPLAIN the new query
 
@@ -209,10 +206,10 @@ State size: medium
 State TTL: 2 d
 ```
 
-State size is now `medium` and we have an TTL. 
+State size is now `medium` and we have a TTL. 
 
 
-### 3 - Lookup joins
+### 5 - Lookup joins
 
 Lookup joins allow enriching a streaming dataset with a dataset residing in an external database, looking up the matching entries by key.
 
@@ -224,7 +221,7 @@ In this workshop we will use MongoDB Atlas and a sample dataset freely available
 
 > Differently from temporal, interval, and regular joins, lookup joins are not state intensive.
 
-#### 3.0 - Set up MongoDB
+#### 5.0 - Set up MongoDB
 
 To demonstrate lookup joins we need to set up a connection to a MongoDB Atlas cluster containing the `sample_mflix` dataset.
 
@@ -241,7 +238,7 @@ You require the following information to proceed:
 > ⚠️ the MongoDB cluster must contain the `sample_mflix` sample database 
 
 
-#### 3.1 - Create a MongoDB connection
+#### 5.1 - Create a MongoDB connection
 
 Create a MongoDB connection in Flink to set up the connectivity, replacing endpoint, username, and password with the actual values:
 
@@ -261,9 +258,9 @@ Verify the connection has been correctly created:
 DESCRIBE CONNECTION mongodb_connection
 ```
 
-#### 3.2 - Create Flink table representing the MongoDB document schema
+#### 5.2 - Create Flink table representing the MongoDB document schema
 
-For the lookup we will use the `movie` table which is part of the `sample_mflix` sample database available in MongoDB.
+For the lookup we will use the `movies` collection which is part of the `sample_mflix` sample database available in MongoDB.
 
 The schema of the Flink table must match the fields of the MongoDB Document.
 You do not need to include all fields in the Document. Only those you want to use in Flink.
@@ -286,7 +283,7 @@ CREATE TABLE mongodb_movies_key_search (
 );
 ```
 
-#### 3.3 - Lookup join with the external table
+#### 5.3 - Lookup join with the external table
 
 For the sake of this workshop, we want to do a join between customers and movies, from the MongoDB table.
 We want to match each customer with all movies released in their year of birth.
@@ -310,5 +307,5 @@ FROM customers_faker,
   )
 ```
 
-> For each record `KEY_SEARCH_AGG` returns and array containing all attributes defined in the `mongodb_movies_key_search`
+> For each record `KEY_SEARCH_AGG` returns an array containing all attributes defined in the `mongodb_movies_key_search`
 > for **all** matching movies.

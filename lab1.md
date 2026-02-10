@@ -1,6 +1,4 @@
-# Lab 1
-
-## Understanding Flink SQL & Query Execution
+# Lab 1: Understanding Flink SQL & Query Execution
 
 In this lab you will learn how to execute Flink SQL statements to create and alter tables, and execute queries.
 You will also learn how to analyze the execution plan of a query before submitting it to Flink for execution.
@@ -11,8 +9,8 @@ In the *SQL Workspace*, select the default Catalog and Database. This allows you
 
 You can always use fully-qualified references in the form `<catalog>.<database>.<table>`.
 
-> Note that in this workshop, table and field names are always quoted using backticks (`). This is required to preserve name case, avoid conflicts with reserved words, and allow names that include characters other than [A‑Za‑z0‑9_]. 
-> Quoting is not strictly required when the object name only contains lowercase alphanumeric characters and underscore.
+> Note that in this first lab, table and field names are all quoted using backticks (`). 
+> Quoting is not strictly required if the identifier only contains lowercase alphanumeric characters and underscore.
 
 ### 1 - Generate fake data using the Faker connector
 

@@ -16,7 +16,7 @@ Also, a single MongoDB cluster can be shared by multiple workshop attendees, as 
 4. Edit Network Access > IP List > Add IP Address : Allow Access from Anywhere
 5. Find the cluster endpoint:
     1. Clusters > Connect > Drivers 
-    2. Check out the connection string, something like `mongodb+srv://<db-user>:<db_password>@my-cluster.something.mongodb.net/?appName=My-app`: the endpoint for CC Flink is the string omitting db-user and db-password up to the trailing `/`, e.g. `mongodb+srv://my-cluster.something.mongodb.net 
+    2. Check out the connection string, something like `mongodb+srv://<db-user>:<db_password>@my-cluster.something.mongodb.net/?appName=My-app`: the endpoint for CC Flink is the string omitting db-user and db-password up to the trailing `/`, e.g. `mongodb+srv://my-cluster.something.mongodb.net/` 
 
 
 Take note of the following:

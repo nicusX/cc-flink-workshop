@@ -37,7 +37,7 @@ JOIN customers_faker AS c
 See [Available SET Options](https://docs.confluent.io/cloud/current/flink/reference/statements/set.html#available-set-options)
 for a complete list.
 
-We have already used the `sql.state-ttl` option in [lab 2](lab2.md). 
+We have already used the `sql.state-ttl` option in [Lab 2](./lab2.md). 
 Let's explore some other commonly used options.
 
 #### 1.1 - Dry run
@@ -60,7 +60,7 @@ JOIN customers_faker AS c
 
 #### 1.2 - Snapshot Queries
 
-> ⚠️ as of February 2026, Snapshot Queries are currently in Early Access. Skip this section unless this feature is enabled in your Confluent Cloud organization.
+> ⚠️ As of February 2026, Snapshot Queries are currently in Early Access. Skip this section unless this feature is enabled in your Confluent Cloud organization.
 
 Enabling snapshot query forces Flink to process data in a topic as a bounded set, from the earliest available record to the latest offset when the query is submitted.
 Differently from the default streaming mode, a snapshot query ends when it has processed all data up to the latest record.
@@ -181,7 +181,7 @@ SELECT /*+ OPTIONS('scan.startup.mode' = 'latest-offset' ) */
 FROM customers_pk
 ```
 
-> ℹ  this approach differs from adding the same table option to the `customers_pk`, using the `WITH` block or `ALTER TABLE ... SET ...` as we have seen in [Lab 1](lab1.md).
+> ℹ This approach differs from adding the same table option to the `customers_pk`, using the `WITH` block or `ALTER TABLE ... SET ...` as we have seen in [Lab 1](./lab1.md).
 > An option added directly to the table applies to all statements using that table.
 > Conversely, a Hint only applies to the current query
 
@@ -209,7 +209,7 @@ JOIN customers_pk /*+ OPTIONS('scan.startup.mode'='earliest-offset') */  AS c
 
 ### 3 - ALTER TABLE
 
-We have already used the [`ALTER TABLE`](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html) statement in [Lab 1](lab1.md).
+We have already used the [`ALTER TABLE`](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html) statement in [Lab 1](./lab1.md).
 Let's see some more examples.
 
 > ⚠️ In Flink `ALTER TABLE` has limitations, compared to relational databases. In fact, you cannot alter the table schema except for adding computed and metadata columns. See [ALTER TABLE Statement in Confluent Cloud for Apache Flink](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#description) for more details.

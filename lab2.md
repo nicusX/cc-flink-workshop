@@ -9,9 +9,10 @@ We will also use `EXPLAIN` to understand when a statement may be state-intensive
 ### Prerequisites
 
 In this lab we will be using the customers and transaction fake data created in [Lab 1](./lab1.md).
-
 If you destroyed those tables, go back to [Lab 1](./lab1.md) and create both `transactions_faker` and `customers_faker` tables.
 
+We will also use the `customer_pk` table created in [Lab 1](./lab1.md). 
+If the CTAS statement is not running you may not see any incoming data. However, you need to drop the `customer_pk` table before re-running the CTAS statement which creates and populates it.
 
 ### 1 - Temporal Join
 
@@ -39,7 +40,7 @@ JOIN customers_pk FOR SYSTEM_TIME AS OF t.`timestamp` AS c
 
 This query joins the incoming transactions with the customer record (with the corresponding `account_number`) retrieving the customer record version valid at the point in time of the transaction `timestamp`.
 
-> ⚠️ Note that the versioned table we are joining is `customers_pk`, which has a primary key, and not the *faker* table `customers_faker`.
+> ℹ  Note that the versioned table we are joining is `customers_pk`, which has a primary key, and not the *faker* table `customers_faker`.
 > Temporal joins require that the versioned table has a primary key.
 > Conversely, no primary key is required for the left input stream.
 
@@ -64,7 +65,7 @@ WHERE t.`timestamp` BETWEEN c.created_at AND c.created_at + INTERVAL '10' SECOND
 
 In this case, a transaction is joined with customer records where the customer's `created_at` timestamp falls within a 10-second window ending at the transaction timestamp. In other words, the customer must have been created between 10 seconds before the transaction and the exact moment of the transaction.
 
-> ⚠️ Note that the interval join does not require any primary key. In fact, we can join directly `transactions_faker` with `customers_faker`.
+> ℹ  Note that the interval join does not require any primary key. In fact, we can join directly `transactions_faker` with `customers_faker`.
 
 
 When you ran the interval join statement you might have noticed a warning about "state-intensive operators without TTL".

@@ -138,7 +138,7 @@ AS SELECT * FROM `customers_faker`
 
 Before executing it, we want to analyze the query plan using `EXPLAIN`. 
 
-Just prepend `EXPLAIN` to the statement to show the query plan (⚠️ execute the following SQL):
+Just prepend `EXPLAIN` to the statement to show the query plan (execute the following SQL):
 
 ```sql
 EXPLAIN
@@ -255,7 +255,7 @@ ALTER TABLE `customers_pk` ADD (
 );
 ```
 
-> ⚠️ Note that you can only [alter a table](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#) 
+> ℹ  Note that you can only [alter a table](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#) 
 > to add metadata and computed columns, or to alter the watermark and properties. You cannot modify the schema.
 
 ##### Describe the table to show the column we added
@@ -302,6 +302,6 @@ Observe the new query output, and in particular the `record_timestamp` column.
 
 You can see now that data is refreshed more frequently and the delay is substantially lower than 60 seconds.
 
-> ⚠️ You can still see a delay of a few seconds. This is due to the refresh rate of the UI. 
+> ℹ  You can still see a delay of a few seconds. This is due to the refresh rate of the UI. 
 > Records are actually read from the topic with negligible delay, without waiting for the transaction commit.
 

@@ -302,6 +302,10 @@ Observe the new query output, and in particular the `record_timestamp` column.
 
 You can see now that data is refreshed more frequently and the delay is substantially lower than 60 seconds.
 
-> ℹ  You can still see a delay of a few seconds. This is due to the refresh rate of the UI. 
+> ℹ  You can still see a delay of a few seconds. This is due to the refresh rate of the UI.
 > Records are actually read from the topic with negligible delay, without waiting for the transaction commit.
 
+---
+---
+
+Next: [Lab 2: Joins](lab2.md)

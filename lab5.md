@@ -340,3 +340,8 @@ WINDOW w AS (
 
 
 If you `EXPLAIN` this statement you can see how all operators have *low* state size and the output is an [Append](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#changelog-modes) stream.
+
+---
+---
+
+Next: [Lab 6: Error Handling and Statement Operations](lab6.md)

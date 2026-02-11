@@ -540,7 +540,12 @@ SELECT
         CAST(currency AS STRING),
         ' balance available on your card.'
     ) as message
-FROM flagged_trx_view 
+FROM flagged_trx_view
     WHERE withdraw_flag = 'YES';
 ```
+
+---
+---
+
+Next: [Lab 5: Changelog Modes and Advanced Operators](lab5.md)
 

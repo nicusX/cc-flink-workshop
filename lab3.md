@@ -222,3 +222,8 @@ To ensure data is regularly emitted, you may employ the so called *Heartbeat pat
 Practically, an additional source of data which regularly emits dummy events. These dummy events are disregarded in the calculations but allow the time to progress.
 
 See [Heartbeat pattern](https://github.com/charmon79/cc-flink-demos/blob/main/patterns/heartbeat-pattern.md) for an explanation and example of this pattern.
+
+---
+---
+
+Next: [Lab 4: Options and SQL Hints, VIEWS & ALTER TABLE](lab4.md)

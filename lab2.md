@@ -312,3 +312,8 @@ FROM customers_faker,
 
 > For each record `KEY_SEARCH_AGG` returns an array containing all attributes defined in the `mongodb_movies_key_search`
 > for **all** matching movies.
+
+---
+---
+
+Next: [Lab 3: Aggregations and Windowing](lab3.md)

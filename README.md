@@ -7,6 +7,8 @@ Welcome to the hands-on portion of our Flink SQL workshop. This repository conta
 ## 🛠 Prerequisites
 * Access to a Confluent Cloud Flink SQL environment.
 * Basic understanding of SQL syntax.
+* A MongoDB account, a free MongoDB cluster with sample data (required for [Lab 2, Lookup joins](./lab2.md#5---lookup-joins) only).
+  See [MongoDB setup](mongodb-setup.md) instructions.
 
 ---
 
@@ -22,10 +24,3 @@ Navigate through the following labs to complete the practical exercises:
 | **[Lab 4: Hints & Views](lab4.md)** | **SQL Hints, Views & Schema Evolution** | Using `HINTS` for statement improvement, creating `VIEW`s, Common Table Expressions (CTE), and setting table options. |
 | **[Lab 5: Changelogs](lab5.md)** | **Changelog Modes & Table Semantics** | Understanding changelog modes, operators and their state impact. |
 | **[Lab 6: Statement Operations](lab6.md)** | **Error Handling & Statement Operations** | Custom error handling with DLQ, Carry-over Offset for statement replacement. |
----
-
-## 🚀 Running the Labs
-1. **Open your environment**: Launch your Console Flink SQL Client or Confluent Cloud SQL Workspace.
-2. **Execute DDL**: Copy the `CREATE TABLE` statements from the relevant lab file to register your sources.
-3. **Run Queries**: Execute the practical exercises.
-4. **Verify**: Check your results

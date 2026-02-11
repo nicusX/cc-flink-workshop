@@ -188,3 +188,13 @@ GROUP BY c.city;
 ```sql
 SELECT * FROM `city_spend_report_carryover`
 ```
+
+---
+---
+
+You have reached the end of the workshop.
+
+We hope this gave you a better understanding of Flink SQL capabilities and how to optimize your Flink workloads.
+
+Do not forget to stop all your statements, shut down the Compute Pool and the Cluster, if you created them for this workshop.
+ 

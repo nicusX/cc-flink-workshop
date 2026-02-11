@@ -260,45 +260,6 @@ SHOW CREATE TABLE `transactions_faker`
 ```
 
 
-#### 3.4 - Modify Changelog Mode
-
-The `customers_pk` should be using `upsert` changelog mode at the moment, as you can verify showing the table definition:
-
-```sql
-SHOW CREATE TABLE `customers_pk`
-```
-
-You can also see it directly querying the table and switching to *Changelog View*
-
-```sql
-SELECT * FROM `customers_pk`
-```
-
-Switching to *Changelog View* you should see `+I`, `-U`, and `+U` records flowing.
-
-> ⚠️ Stop the select query before modifying Changelog Mode.
-
-
-Modify the Changelog Mode to `append`:
-
-```sql
-ALTER TABLE `customers_pk` SET ('changelog.mode' = 'append')
-```
-
-Verify the table definition:
-
-```sql
-SHOW CREATE TABLE `customers_pk`
-```
-
-Scan the table again:
-
-```sql
-SELECT * FROM `customers_pk`
-```
-
-Switching to *Changelog View* you should now see only `+I` records.
-
 ---
 
 ### 4 - Common Table Expressions (CTE)

@@ -1,8 +1,17 @@
 # Lab 2 - part 2: Aggregations and Windowing
 
-> This lab uses the `transactions_faker` table created in [Lab 1](./lab1.md). Make sure this table exists before proceeding.
-
 In the second part of this lab we will explore aggregations and windowing.
+
+### Prerequisites
+
+In this lab we will be using the customers and transaction fake data created in [Lab 1](./lab1.md).
+If you destroyed those tables, go back to [Lab 1](./lab1.md) and create both `transactions_faker` and `customers_faker` tables.
+
+We will also use the `customers_pk` table created in [Lab 1](./lab1.md).
+
+> ⚠️ If the CTAS statement copying data into `customers_pk` is no longer running, you may not see any incoming data. 
+> Start and keep running the following statement: `INSERT INTO customers_pk SELECT * FROM customers_faker`.
+
 
 ### 1 - GROUP BY
 

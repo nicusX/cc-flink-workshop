@@ -1,80 +1,153 @@
+# Lab 5: Error Handling and Statement Operations
 
-# Lab 5
+In this lab we will see how to set up custom error handling and execute common statement operations.
 
-### Statement Operations
+### Prerequisites
 
-Use demo data from Lab 1
+In this lab we will be using the customers and transaction fake data created in [Lab 1](./lab1.md).
+If you destroyed those tables, go back to [Lab 1](./lab1.md) and create both `transactions_faker` and `customers_faker` tables.
 
-#### Error Handling
-Custom error handling for deserialization errors
-https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#custom-error-handling
+We will also use the `customers_pk` table created in [Lab 1](./lab1.md).
 
+> ⚠️ If the CTAS statement copying data into `customers_pk` is no longer running, you may not see any incoming data. 
+> Start and keep running the following statement: `INSERT INTO customers_pk SELECT * FROM customers_faker`.
 
-Insert valid data
-```
+### 1 - Error Handling
+
+When you write data to a table Flink enforces schema validation. 
+
+Everything is fine as long as the inserted data matches the schema:
+
+```sql
 INSERT INTO customers_pk (account_number, customer_name, city)
 VALUES ('ACC1000111', 'Bob Smith', 'Munich');
 ```
 
-Try to insert invalid data
-```
+#### 1.1 - Default error handling (`fail`)
+
+However, if you try to insert a record that does not match the schema, by default you get an error and the statement fails.
+
+Invalid data type:
+
+```sql
 INSERT INTO customers_pk (account_number, customer_name, date_of_birth)
 VALUES ('ACC1000112', 'Invalid Customer Date Format', '1.1.2015');
 ```
 
-Try to insert NULL  for key
-```
+Null PK:
+
+```sql
 INSERT INTO customers_pk (account_number, customer_name, city)
 VALUES (CAST(NULL AS STRING), 'Ghost User', 'London');
 ```
 
-Try to insert incorrect column count
-```
+Incorrect column count:
+
+```sql
 INSERT INTO customers_pk 
 SELECT 
     'ACC999' as account_number, 
     'Broken Entry' as customer_name; 
 ```
 
-Create a new table and copy some correct messages from faker. Stop it after 1 minute.
-```
+#### 1.2 - Custom Error Handling (`log` - aka DLQ)
+
+You can set up custom error handling to send any record violating the schema (i.e. failing deserialization)
+ to a DLQ (Dead Letter Queue) table.
+
+See [Custom error handling](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#custom-error-handling) for more details.
+
+
+1. Use a CTAS statement to create a new table and copy some correct messages from faker. ⚠️ Stop this statement after about one minute.
+
+```sql
 CREATE TABLE customers_poisoned AS
 SELECT *
 FROM `customers_faker`;
 ```
 
-Enable error handling for the source table
-```
+2. Enable error handling on this table:
+
+```sql
 ALTER TABLE `customers_poisoned` SET (
   'error-handling.mode' = 'log',
   'error-handling.log.target' = 'dlq_topic'
 ) 
 ```
-Check if enabled
-```
+
+
+> ℹ️ Enabling the DLQ on a table automatically creates a new table and a new topic for the DLQ, in this case called `dlq_topic` (the name is arbitrary)
+
+3. Check if error handling is correctly enabled:
+
+```sql
 SHOW CREATE TABLE `customers_poisoned`
 ```
 
-Start insert from the poisoned topic
-```
+4. Start inserting record from the poisoned topic into `customers_pk`
+
+```sql
 INSERT INTO `customers_pk` SELECT * FROM `customers_poisoned`
 ```
 
-Manually insert couple incorrect message to the Kafka topic `customers_poisoned` (produce without schema)
-```
+> ⚠️ Keep this statement running. Run the next as a separate statement.
+
+5. Manually insert some incorrect messages into the `customers_poisoned` Kafka topic.
+   To insert records that violate the schema we cannot use Flink. 
+   We need to put the record directly into the topic. Using the UI, navigate to the topic:
+
+  - *Environments* > [select your environment] > *Clusters* > [select your cluster] > *Topics* > `customers_poisoned`
+  - *Actions* > *Produce a new message* 
+  - *Value* > select *Produce without schema*
+  - Copy & Paste the following message in *Value*
+
+```json
 {"id": 1, "payload": "poisoned pill"}
 ```
 
-Check DLQ log
-```
+  - Click *Produce*
+
+
+6. Go back to the Flink SQL Workspace and check the DLQ, where you will find our offending message:
+
+```sql
 SELECT * FROM `dlq_topic`
 ```
 
-#### Carry Over Offset
-https://docs.confluent.io/cloud/current/flink/operate-and-deploy/carry-over-offsets.html
+---
 
-Create new city_spend_report_carryover table with added column and new primary key
+
+### 2 - Carry-over Offset
+
+When you have production Flink statements continuously running, you may want to deploy a new version of the statement.
+You normally want to start the new statement exactly from the point (offset) in the source topic where the old statement stopped.
+
+You can use [Carry-over Offset](https://docs.confluent.io/cloud/current/flink/operate-and-deploy/carry-over-offsets.html) for this goal.
+
+
+We should already have a table called `city_spend_report` from [Lab 4](./lab4.md).
+
+1. Let's run a statement which inserts some records in this table (ignore the warning). Keep this statement running for now.
+
+```sql
+INSERT INTO city_spend_report
+  SELECT 
+    SUM(t.amount),
+    c.city
+FROM transactions_faker t
+JOIN customers_pk c ON t.account_number = c.account_number
+GROUP BY c.city;
 ```
+
+2. While the previous statement is running, go to the Flink Compute Pool UI 
+   (*Environments* > [select your environment] > *Compute pools* > [select your compute pool]).
+   Scroll down the page to *Statements associated with this pool*
+
+3. Find the running statement and copy the statement ID. It should be something like `<workspace-name>-abcde1234-abcd-1234-0123456789ab`   
+
+4. Create a new destination table which we will use for a new statement that will replace our previous 
+
+```sql
 CREATE TABLE city_spend_report_carryover(
   city STRING,
   total_spent DOUBLE,
@@ -83,11 +156,20 @@ CREATE TABLE city_spend_report_carryover(
 )
 ```
 
-Find the old Insert Into statement for city_spend_report table. If stopped check for the latest offsets of customers_pk.
-Migrate it to the new statement version
-```
-SET 'sql.tables.initial-offset-from'  = 'workshop-f7290c47-5701-4cde-9ec0-a4b047e61c1c';
-SET 'client.statement-name' = 'city-state-report-v1-statement';
+5. Stop the previous `INSERT INTO city_spend_report...` statement
+
+> ℹ️ If you cannot find the statement in the SQL Workspace, you can stop it from the Flink Compute Pool UI
+
+
+> ℹ️ Once the statement is stopped, in the Flink Compute Pool UI you can find the latest offsets consumed from `customers_pk`.
+> However, we do not need to keep note of them because *Carry-over Offset* will do the job for us, automatically.
+
+
+6. Create a new statement to replace the one we just stopped.
+   Replace the value of the option `sql.tables.initial-offset-from` with the ID of the statement we just stopped:
+
+```sql
+SET 'sql.tables.initial-offset-from'  = '<previous statement ID>';
 INSERT INTO city_spend_report_carryover
   SELECT 
     c.city,
@@ -98,5 +180,11 @@ JOIN customers_pk c ON t.account_number = c.account_number
 GROUP BY c.city;
 ```
 
-Only new cities should be displayed
-`SELECT * FROM city_spend_report_carryover`
+> ⚠️ If you run the new statement before stopping the statement referred by `sql.tables.initial-offset-from`, the new statement stays in *Pending* until you stop the old one.
+
+
+7. Only new cities are sent to the new table (⚠️ run this as a separate statement):
+
+```sql
+SELECT * FROM `city_spend_report_carryover`
+```

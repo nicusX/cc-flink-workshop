@@ -10,7 +10,9 @@ In this lab we will be using the customers and transaction fake data created in 
 If you destroyed those tables, go back to [Lab 1](./lab1.md) and create both `transactions_faker` and `customers_faker` tables.
 
 We will also use the `customers_pk` table created in [Lab 1](./lab1.md).
-If the CTAS statement is not running you may not see any incoming data. However, you need to drop the `customers_pk` table before re-running the CTAS statement which creates and populates it.
+
+> ⚠️ If the CTAS statement copying data into `customers_pk` is no longer running, you may not see any incoming data. 
+> Start and keep running the following statement: `INSERT INTO customers_pk SELECT * FROM customers_faker`.
 
 ### 1 - SET options
 

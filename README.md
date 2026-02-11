@@ -18,9 +18,9 @@ Navigate through the following labs to complete the practical exercises:
 
 | Lab # | Topic | Description |
 | :--- | :--- | :--- |
-| **[Lab 1: Foundations](lab1.md)** | **Understanding Flink SQL & Query Execution** | Executing Flink SQL statements. Interpreting `EXPLAIN` plans.|
-| **[Lab 2: Joins](lab2.md)** | **State-Intensive Join Operators** | Implementing Temporal Table Joins, Interval Joins, Regular Joins with TTL, and Lookup Joins to external databases. |
-| **[Lab 3: Aggregations & Windows](lab3.md)** | **Aggregations and Windowing** | Using GROUP BY, OVER windows, Tumble windows, and Session windows for stream aggregations. |
-| **[Lab 4: Hints & Views](lab4.md)** | **SQL Hints, Views & Schema Evolution** | Using `HINTS` for statement improvement, creating `VIEW`s, Common Table Expressions (CTE), and setting table options. |
-| **[Lab 5: Changelogs](lab5.md)** | **Changelog Modes & Table Semantics** | Understanding changelog modes, operators and their state impact. |
+| **[Lab 1: Foundations](lab1.md)** | **Executing Flink SQL statements** | Executing Flink SQL statements. Interpreting `EXPLAIN` plans.|
+| **[Lab 2: Joins](lab2.md)** | **Join Operators** | Implementing Temporal Table Joins, Interval Joins, Regular Joins with TTL, and Lookup Joins to external databases. |
+| **[Lab 3: Aggregations & Windows](lab3.md)** | **Aggregations and Windowing** | Using GROUP BY, OVER windows, Tumble windows, and Session windows. |
+| **[Lab 4: Hints & Views](lab4.md)** | **SQL Hints, Views, and Table Options** | Using `HINTS` for statement improvement, creating `VIEW`s, Common Table Expressions (CTE), and setting table options. |
+| **[Lab 5: Changelogs and Operators](lab5.md)** | **Changelog Modes & State-intensive Operators** | Understanding changelog modes, operators and their state impact. |
 | **[Lab 6: Statement Operations](lab6.md)** | **Error Handling & Statement Operations** | Custom error handling with DLQ, Carry-over Offset for statement replacement. |

@@ -1,8 +1,8 @@
 # Lab 2 - part 1: Joins
 
-In this lab we will examine state-intensive operations such as joins and aggregations.
+In this lab we will examine state-intensive operations such as joins.
 
-In the first part we will explore some of the most commonly used join patterns.
+We will explore some of the most commonly used join patterns.
 We will also use `EXPLAIN` to understand when a statement may be state-intensive and potentially cause stability and performance issues in the long term.
 
 

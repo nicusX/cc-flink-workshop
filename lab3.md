@@ -1,6 +1,6 @@
 # Lab 3: Aggregations and Windowing
 
-In the second part of this lab we will explore aggregations and windowing.
+In this lab we will explore aggregations and windowing.
 
 ### Prerequisites
 

@@ -182,7 +182,7 @@ SET 'sql.tables.scan.idle-timeout' = '1s';
 
 CREATE TABLE `customers_pk` (
   PRIMARY KEY(`account_number`) NOT ENFORCED,
-  WATERMARK FOR `created_at` AS `created_at`  - INTERVAL '5' SECONDS
+  WATERMARK FOR `created_at` AS `created_at` - INTERVAL '5' SECONDS
 )
   WITH ('changelog.mode' = 'upsert')
 AS SELECT * FROM `customers_faker`

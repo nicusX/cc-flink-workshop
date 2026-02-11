@@ -1,6 +1,7 @@
-# Lab 5: Error Handling and Statement Operations
+# Lab 5: Changelog Modes and Advanced Operators
 
-In this lab we will see how to set up custom error handling and execute common statement operations.
+In this lab we will learn more about different Changelog Modes.
+We will also get a better understanding of some of the operators that comprise the physical plan of a statement and that may have an impact on performance and stability of your Flink statements.
 
 ### Prerequisites
 
@@ -12,122 +13,226 @@ We will also use the `customers_pk` table created in [Lab 1](./lab1.md).
 > ⚠️ If the CTAS statement copying data into `customers_pk` is no longer running, you may not see any incoming data. 
 > Start and keep running the following statement: `INSERT INTO customers_pk SELECT * FROM customers_faker`.
 
-### 1 - Error Handling
 
-When you write data to a table Flink enforces schema validation. 
+### 1 - Modify Changelog Modes
 
-Everything is fine as long as the inserted data matches the schema:
+In the previous lab, we have seen how you can modify [table property](https://docs.confluent.io/cloud/current/flink/reference/statements/create-table.html#flink-sql-with-options) using `ALTER TABLE`.
 
-```sql
-INSERT INTO customers_pk (account_number, customer_name, city)
-VALUES ('ACC1000111', 'Bob Smith', 'Munich');
-```
 
-#### 1.1 - Default error handling (`fail`)
+The `changelog.mode` table property controls the [*Changelog Mode*](https://docs.confluent.io/cloud/current/flink/reference/statements/create-table.html#changelog-mode) emitted by the table. 
 
-However, if you try to insert a record that does not match the schema, by default you get an error and the statement fails.
+#### Show the Changelog Mode of a table
 
-Invalid data type:
+Verify the current changelog mode of the `customers_pk` table (should be `upsert` if you haven't changed it):
 
 ```sql
-INSERT INTO customers_pk (account_number, customer_name, date_of_birth)
-VALUES ('ACC1000112', 'Invalid Customer Date Format', '1.1.2015');
+SHOW CREATE TABLE `customers_pk`
 ```
 
-Null PK:
+#### Visualize the Changelog
+
+You can also see it by directly querying the table and switching to *Changelog View*
 
 ```sql
-INSERT INTO customers_pk (account_number, customer_name, city)
-VALUES (CAST(NULL AS STRING), 'Ghost User', 'London');
+SELECT * FROM `customers_pk`
 ```
 
-Incorrect column count:
+Switching to *Changelog View* you should see `+I`, `-U`, and `+U` records flowing.
+
+
+#### Modify Changelog mode
+
+
+Modify the Changelog Mode to `append` ( ⚠️ Stop the select query before modifying):
 
 ```sql
-INSERT INTO customers_pk 
-SELECT 
-    'ACC999' as account_number, 
-    'Broken Entry' as customer_name; 
+ALTER TABLE `customers_pk` SET ('changelog.mode' = 'append')
 ```
 
-#### 1.2 - Custom Error Handling (`log` - aka DLQ)
+#### Show and visualize the new Changelog Mode
 
-You can set up custom error handling to send any record violating the schema (i.e. failing deserialization)
- to a DLQ (Dead Letter Queue) table.
-
-See [Custom error handling](https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html#custom-error-handling) for more details.
-
-
-1. Use a CTAS statement to create a new table and copy some correct messages from faker. ⚠️ Stop this statement after about one minute.
+Verify the table definition:
 
 ```sql
-CREATE TABLE customers_poisoned AS
-SELECT *
-FROM `customers_faker`;
+SHOW CREATE TABLE `customers_pk`
 ```
 
-2. Enable error handling on this table:
+Scan the table again:
 
 ```sql
-ALTER TABLE `customers_poisoned` SET (
-  'error-handling.mode' = 'log',
-  'error-handling.log.target' = 'dlq_topic'
-) 
+SELECT * FROM `customers_pk`
 ```
 
-
-> ℹ️ Enabling the DLQ on a table automatically creates a new table and a new topic for the DLQ, in this case called `dlq_topic` (the name is arbitrary)
-
-3. Check if error handling is correctly enabled:
-
-```sql
-SHOW CREATE TABLE `customers_poisoned`
-```
-
-4. Start inserting record from the poisoned topic into `customers_pk`
-
-```sql
-INSERT INTO `customers_pk` SELECT * FROM `customers_poisoned`
-```
-
-> ⚠️ Keep this statement running. Run the next as a separate statement.
-
-5. Manually insert some incorrect messages into the `customers_poisoned` Kafka topic.
-   To insert records that violate the schema we cannot use Flink. 
-   We need to put the record directly into the topic. Using the UI, navigate to the topic:
-
-  - *Environments* > [select your environment] > *Clusters* > [select your cluster] > *Topics* > `customers_poisoned`
-  - *Actions* > *Produce a new message* 
-  - *Value* > select *Produce without schema*
-  - Copy & Paste the following message in *Value*
-
-```json
-{"id": 1, "payload": "poisoned pill"}
-```
-
-  - Click *Produce*
-
-
-6. Go back to the Flink SQL Workspace and check the DLQ, where you will find our offending message:
-
-```sql
-SELECT * FROM `dlq_topic`
-```
+Switching to *Changelog View* you should now see only `+I` records.
 
 ---
 
+### 2 - Operators examples
 
-### 2 - Carry-over Offset
+In [Lab 1](./lab1.md), we have seen how we can use `EXPLAIN` to see the query plan (physical plan) of a statement, and the operators it comprises.
 
-When you have production Flink statements continuously running, you may want to deploy a new version of the statement.
-You normally want to start the new statement exactly from the point (offset) in the source topic where the old statement stopped.
+Some of these operators can be particularly impactful on performance and stability of the query. Let's see some examples.
 
-You can use [Carry-over Offset](https://docs.confluent.io/cloud/current/flink/operate-and-deploy/carry-over-offsets.html) for this goal.
+* [**StreamExchange**](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#streamexchange) (shuffle): this operator indicates redistribution of data between parallel instances, to ensure all the records with the same key are processed by the same Flink internal parallel task. Having some *StreamExchange* in a statement is often inevitable. However, several *StreamExchange* may impact performance.
+* [**StreamGroupAggregate**](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#streamgroupaggregate): performs group aggregations. Can become state heavy if there is no TTL and the number of keys keep growing.
+* [**StreamChangelogNormalize**](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#streamchangelognormalize): when an Append stream has to be written into a table with a Primary Key, Flink has to convert it into an Upsert/Retract stream. This can become state-heavy as Flink has to keep in state one record for each key.
+* [**StreamSink**](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#streamsink) **with Upsert mode**: Similarly to *StreamChangelogNormalize*, sinks in upsert mode may retain one record for each key, with potentially high state impact.
+
+See [Physical Operators](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#physical-operators) for a descriptions of all operator types returned by `EXPLAIN`.
 
 
-We should already have a table called `city_spend_report` from [Lab 4](./lab4.md).
+Let's see a couple of examples of not-so-great queries.
 
-1. Let's run a statement which inserts some records in this table (ignore the warning). Keep this statement running for now.
+
+#### 2.1 - Example 1 - State-intensive operators without TTL
+
+We want to calculate the total spend of every city based on incoming transactions.
+
+The following query can do the job:
+
+```sql
+SELECT 
+    c.city,
+    SUM(t.amount) AS total_spent,
+    COUNT(t.txn_id) AS transaction_count
+FROM transactions_faker AS t
+JOIN customers_pk AS c 
+    ON t.account_number = c.account_number
+GROUP BY c.city;
+```
+
+Let's explain it:
+
+```sql
+EXPLAIN SELECT 
+    c.city,
+    SUM(t.amount) AS total_spent,
+    COUNT(t.txn_id) AS transaction_count
+FROM transactions_faker AS t
+JOIN customers_pk AS c 
+    ON t.account_number = c.account_number
+GROUP BY c.city;
+```
+
+The output should be similar to the following:
+
+```
+== Physical Plan ==
+
+StreamSink [13]
+  +- StreamGroupAggregate [12]
+    +- StreamExchange [11]
+      +- StreamCalc [10]
+        +- StreamJoin [9]
+          +- StreamExchange [5]
+          :  +- StreamCalc [4]
+          :    +- StreamWatermarkAssigner [3]
+          :      +- StreamCalc [2]
+          :        +- StreamTableSourceScan [1]
+          +- StreamExchange [8]
+            +- StreamCalc [7]
+              +- StreamTableSourceScan [6]
+
+== Physical Details ==
+
+[1] StreamTableSourceScan
+Table: `my-env`.`cluster_0`.`transactions_faker`
+Changelog mode: append
+State size: low
+Startup mode: earliest-offset
+
+[6] StreamTableSourceScan
+Table: `my-env`.`cluster_0`.`customers_pk`
+Primary key: (account_number)
+Changelog mode: append
+Upsert key: (account_number)
+State size: low
+Startup mode: earliest-offset
+Key format: avro-registry
+Key registry schemas: (:.:customers_pk/100003)
+Value format: avro-registry
+Value registry schemas: (:.:customers_pk/100002)
+
+[7] StreamCalc
+Changelog mode: append
+Upsert key: (account_number)
+
+[8] StreamExchange
+Changelog mode: append
+Upsert key: (account_number)
+
+[9] StreamJoin
+Changelog mode: append
+State size: high
+State TTL: never
+
+[12] StreamGroupAggregate
+Changelog mode: retract
+Upsert key: (city)
+State size: medium
+State TTL: never
+
+[13] StreamSink
+Table: Foreground
+Changelog mode: retract
+Upsert key: (city)
+State size: low
+
+== Warnings ==
+
+Critical for entire query: Your query includes one or more highly state-intensive operators but does not set a time-to-live (TTL) value, which means that the system potentially needs to store an infinite amount of state. This can result in a DEGRADED statement and higher CFU consumption. If possible, change your query to use a different operator, or set a time-to-live (TTL) value. For more information, see https://cnfl.io/high_state_intensive_operators.
+
+```
+
+You can see the query has multiple *StreamExchange*. 
+Also, the *StreamJoin* and *StreamGroupAggregate* do not have any TTL defined.
+
+
+#### 2.2 - Example 2 - Multiple shuffle
+
+
+Look for customers who have spent a significant amount of money and aggregate them by location.
+
+The following query does the job:
+
+```sql
+SELECT 
+    city,
+    COUNT(*) as high_spender_count
+FROM (
+    SELECT 
+        c.email,
+        c.city,
+        SUM(t.amount) as total_spent
+    FROM transactions_faker t
+    JOIN customers_pk c ON t.account_number = c.account_number 
+    GROUP BY c.email, c.city
+)
+WHERE total_spent > 1000
+GROUP BY city;
+```
+
+However, if you `EXPLAIN` it you can see this simple query has 4 *StreamExchange*
+
+#### 2.3 - Example 3 - Primary key mismatch
+
+When you have an `INSERT INTO... SELECT` (or an equivalent CTAS statement), which writes into a table with a Primary Key, but the derived key from the `SELECT` statement does not match the PK of the destination, the sink becomes heavily stateful.
+
+See. [Primary key differs from derived upsert key](https://docs.confluent.io/cloud/current/flink/how-to-guides/resolve-common-query-problems.html#primary-key-differs-from-derived-upsert-key) for more details.
+
+
+Create a table with a Primary Key (`total_spent`):
+
+```sql
+CREATE TABLE city_spend_report (
+  total_spent DOUBLE,
+  city STRING,
+  PRIMARY KEY(`total_spent`) NOT ENFORCED
+)
+```
+
+Insert into this table from a query with a different key (`city`):
+
 
 ```sql
 INSERT INTO city_spend_report
@@ -139,52 +244,99 @@ JOIN customers_pk c ON t.account_number = c.account_number
 GROUP BY c.city;
 ```
 
-2. While the previous statement is running, go to the Flink Compute Pool UI 
-   (*Environments* > [select your environment] > *Compute pools* > [select your compute pool]).
-   Scroll down the page to *Statements associated with this pool*
+If you `EXPLAIN` the `INSERT INTO...` statement you can notice the *StreamSink* operator with high state, and the warnings about the the state-heavy sink and lack of TTL:
 
-3. Find the running statement and copy the statement ID. It should be something like `<workspace-name>-abcde1234-abcd-1234-0123456789ab`   
 
-4. Create a new destination table which we will use for a new statement that will replace our previous 
+```
+== Physical Details ==
 
-```sql
-CREATE TABLE city_spend_report_carryover(
-  city STRING,
-  total_spent DOUBLE,
-  total_transactions INT,
-  PRIMARY KEY(`city`) NOT ENFORCED
-)
+[...]
+
+[14] StreamSink
+Table: `my_env`.`cluster_0`.`city_spend_report`
+Primary key: (total_spent)
+Changelog mode: upsert
+Upsert key: (city)
+State size: high
+State TTL: never
+Key format: avro-registry
+Key registry schemas: (:.:city_spend_report/100011)
+Value format: avro-registry
+Value registry schemas: (:.:city_spend_report/100012)
+
+== Warnings ==
+
+1. Critical for StreamSink [14]: The primary key does not match the upsert key derived from the query. If the primary key and upsert key don't match, the system needs to add a state-intensive operation for correction. Please revisit the query (upsert key: [city]) or the table declaration for `my_env`.`cluster_0`.`city_spend_report` (primary key: [total_spent]). Grouping, partitioning, and joining operations should reference the upsert keys of the source tables. For more information, see https://cnfl.io/primary_vs_upsert_key.
+2. Critical for entire query: Your query includes one or more highly state-intensive operators but does not set a time-to-live (TTL) value, which means that the system potentially needs to store an infinite amount of state. This can result in a DEGRADED statement and higher CFU consumption. If possible, change your query to use a different operator, or set a time-to-live (TTL) value. For more information, see https://cnfl.io/high_state_intensive_operators.
+
 ```
 
-5. Stop the previous `INSERT INTO city_spend_report...` statement
+#### 2.4 - Example 4 - JOIN vs OVER WINDOW (Retract vs Append Changelog)
 
-> ℹ️ If you cannot find the statement in the SQL Workspace, you can stop it from the Flink Compute Pool UI
+Sometimes, multiple approaches return the same results, but the output has a different Changelog mode.
 
+For example, to combine customers and transactions, we can take two different approaches.
 
-> ℹ️ Once the statement is stopped, in the Flink Compute Pool UI you can find the latest offsets consumed from `customers_pk`.
-> However, we do not need to keep note of them because *Carry-over Offset* will do the job for us, automatically.
-
-
-6. Create a new statement to replace the one we just stopped.
-   Replace the value of the option `sql.tables.initial-offset-from` with the ID of the statement we just stopped:
+##### Full Outer Join
 
 ```sql
-SET 'sql.tables.initial-offset-from'  = '<previous statement ID>';
-INSERT INTO city_spend_report_carryover
-  SELECT 
-    c.city,
-    SUM(t.amount) AS total_spent,
-    CAST (COUNT(t.amount) AS INT) AS total_transactions 
+SELECT 
+    COALESCE(t.account_number, c.account_number) as account_id,
+    t.txn_id,
+    t.amount,
+    c.customer_name,
+    c.city
 FROM transactions_faker t
-JOIN customers_pk c ON t.account_number = c.account_number
-GROUP BY c.city;
+FULL OUTER JOIN customers_faker c
+    ON t.account_number = c.account_number;
 ```
 
-> ⚠️ If you run the new statement before stopping the statement referred by `sql.tables.initial-offset-from`, the new statement stays in *Pending* until you stop the old one.
+The output will be a stream with the most recent transaction and corresponding customer.
+
+If you `EXPLAIN` this query, you can see the output is a [Retract](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#changelog-modes) stream.
+The *StreamJoin* operator has a *medium* state size (because the row is small). However, without a TTL the state can potentially grow unbounded and cause problems.
 
 
-7. Only new cities are sent to the new table (⚠️ run this as a separate statement):
+##### UNION ALL + OVER WINDOW 
+
+An alternative approach to solve this problem is by using `UNION ALL` to "merge" the two streams, and then combining matching transactions and customers by an OVER WINDOW.
+
+This approach may sound counterintuitive but is actually more efficient. You can find more details in [Combine Streams and Track Most Recent Records with Confluent Cloud for Apache Flink](https://docs.confluent.io/cloud/current/flink/how-to-guides/combine-and-track-most-recent-records.html).
+
 
 ```sql
-SELECT * FROM `city_spend_report_carryover`
+WITH combined_data AS (
+    SELECT
+        account_number,
+        txn_id,
+        amount,
+        CAST(NULL AS STRING) as customer_name,
+        CAST(NULL AS STRING) as city,
+        `timestamp` as event_time
+    FROM transactions_faker
+    UNION ALL
+    SELECT
+        account_number,
+        CAST(NULL AS STRING) as txn_id,
+        CAST(NULL AS DOUBLE) as amount,
+        customer_name, 
+        city,
+        created_at as event_time
+    FROM customers_faker
+)
+SELECT
+    account_number,
+    LAST_VALUE(txn_id) OVER w AS last_txn_id,
+    LAST_VALUE(amount) OVER w AS last_amount,
+    LAST_VALUE(customer_name) OVER w AS last_customer_name,
+    LAST_VALUE(city) OVER w AS city
+FROM combined_data
+WINDOW w AS (
+    PARTITION BY account_number 
+    ORDER BY event_time
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+);
 ```
+
+
+If you `EXPLAIN` this statement you can see how all operators have *low* state size and the output is an [Append](https://docs.confluent.io/cloud/current/flink/reference/statements/explain.html#changelog-modes) stream.

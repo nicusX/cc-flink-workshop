@@ -1,6 +1,6 @@
 # Flink SQL Workshop: Advanced Stream Processing with Confluent Cloud
 
-Welcome to the hands-on portion of our Flink SQL workshop. This repository contains all the lab exercises and SQL scripts required to master streaming analytics.
+Welcome to the hands-on portion of our Flink SQL workshop. This repository contains all the lab exercises and SQL scripts required to master streaming analytics!
 
 ---
 

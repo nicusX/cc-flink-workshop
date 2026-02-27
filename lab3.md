@@ -1,266 +1,229 @@
-# Lab 3
+# Lab 3: Aggregations and Windowing
 
-### SQL Hints, VIEWS & ALTER TABLE
+In this lab we will explore aggregations and windowing.
 
-Use demo data from Lab 1
+### Prerequisites
 
-#### SET
+In this lab we will be using the customers and transaction fake data created in [Lab 1](./lab1.md).
+If you destroyed those tables, go back to [Lab 1](./lab1.md) and create both `transactions_faker` and `customers_faker` tables.
 
-Multiple SETs
+We will also use the `customers_pk` table created in [Lab 1](./lab1.md).
+
+> ⚠️ If the CTAS statement copying data into `customers_pk` is no longer running, you may not see any incoming data. 
+> Start and keep running the following statement: `INSERT INTO customers_pk SELECT * FROM customers_faker`.
+
+
+### 1 - GROUP BY
+
+The simplest aggregation uses `GROUP BY` to aggregate records globally across a stream.
+
+For example, let's sum all withdrawal transactions larger than 500, by `account_number`.
+
+
+```sql
+SELECT 
+  account_number,
+  transaction_type,
+  SUM(amount) 
+FROM `transactions_faker` 
+WHERE transaction_type = 'withdrawal' 
+GROUP BY account_number,transaction_type
+HAVING SUM(amount) > 500
 ```
-SET 'sql.state-ttl' = '2d';
-SET 'sql.tables.scan.startup.mode' = 'latest-offset';
-SET 'sql.local-time-zone' = 'CET';
+
+As you can see, groups keep being added and updated while transactions are generated.
+
+#### State impact of GROUP BY
+
+The state of this statement is not particularly large. Only the key (`account_number`,`transaction_type`) 
+and a single value (sum of the amounts) are retained for each key.
+
+However, without setting a TTL the state of this statement may grow unbounded.
+
+You can `EXPLAIN` the query to see the impact of the statement. You will notice an operator like this one:
+
+```
+[5] StreamGroupAggregate
+Changelog mode: retract
+Upsert key: (account_number,transaction_type)
+State size: medium
+State TTL: never
+```
+
+As you can see, state size is estimated to `medium`, but no TTL is set. 
+This means the state will only grow over time, potentially causing issues in the long term.
+
+
+### 2 - OVER() for Running Totals
+
+The `OVER` aggregation is used to produce running totals on every input record.
+
+For example, let's calculate the running amount withdrawn from each account.
+We also add a flag (a simple 'YES' or 'NO' string) to highlight when an account has passed the threshold of 500.
+
+
+```sql
 SELECT
-    t.txn_id,
-    t.amount,
-    t.`timestamp` AS txn_time,
-    c.customer_name,
-    c.created_at AS signup_time
-FROM transactions_faker AS t
-JOIN customers_faker AS c
-    ON t.account_number = c.account_number;
+    `account_number`,
+    transaction_type,
+    amount,
+    SUM(amount) OVER w as total_value,
+    CASE WHEN SUM(amount) OVER  w  > 500 THEN 'YES' ELSE 'NO' END AS FLAG
+FROM `transactions_faker`
+WHERE transaction_type = 'withdrawal'
+WINDOW w AS (
+ PARTITION BY account_number,transaction_type
+    ORDER BY `timestamp` ASC
+    RANGE BETWEEN INTERVAL '1' HOUR PRECEDING AND CURRENT ROW)
 ```
 
-SET available options
-https://docs.confluent.io/cloud/current/flink/reference/statements/set.html#available-set-options
+This query appends a new record for each new transaction.
 
-This just doesn't do anything;) 
+
+An `OVER` aggregation is always defined over a finite range of records, in terms of time interval or number of rows.
+In this case we are considering the transactions in the previous hour 
+(`RANGE BETWEEN INTERVAL '1' HOUR PRECEDING AND CURRENT ROW`).
+
+The fact that the range is always bounded limits the impact on state, without requiring any TTL
+
+> If you `EXPLAIN` the previous query you can see the state size of all operators is `low`
+
+
+### 3 - GROUP BY TUMBLE WINDOW
+
+Instead of aggregating globally, "forever", you can define aggregations over time windows.
+
+The simplest is a tumbling window. Each tumbling window has fixed duration, and the next window starts immediately after the previous window ends.
+
+Time windows are by default based on the event time.
+
+For example, let's count all the failed payment transactions for each merchant, over 1 minute intervals:
+
+```sql
+SELECT 
+  window_start,
+  window_end,
+  merchant,
+  COUNT(*) AS total_tx_failed
+FROM
+TUMBLE(
+  TABLE `transactions_faker`, 
+  DESCRIPTOR (`timestamp`), 
+  INTERVAL '1' MINUTE
+  )
+WHERE transaction_type ='payment' AND status = 'Failed'
+GROUP BY 
+  window_start, 
+  window_end,
+  merchant
 ```
-SET 'sql.dry-run' = 'true';
+
+> ⚠️ the query emits the first results after 1 minute, when the first window ends. Then new results at 1 minute intervals.
+
+
+### 4 - GROUP BY SESSION WINDOW
+
+A different type of time window aggregation uses [Session windows](https://docs.confluent.io/cloud/current/flink/reference/queries/window-tvf.html#session).
+
+A session is defined as a continuous sequence of records separated by less than a specified gap of time.
+
+For example, let's count the number of consecutive transactions to each merchant, separated by a maximum gap of 5 seconds.
+In other words, if there is a gap of more than 5 seconds between consecutive transactions to a given merchant, a new session window is created for that merchant.
+
+```sql
 SELECT
-    t.txn_id,
-    t.amount,
-    t.`timestamp` AS txn_time,
-    c.customer_name,
-    c.created_at AS signup_time
-FROM transactions_faker AS t
-JOIN customers_faker AS c
-    ON t.account_number = c.account_number;
+  window_start,
+  TIMESTAMPDIFF(SECOND, window_start, window_end) AS sec_duration,
+  merchant,
+  COUNT(*) AS total_tx
+FROM
+  SESSION(
+    DATA => TABLE `transactions_faker` PARTITION BY merchant, 
+    TIMECOL => DESCRIPTOR(`timestamp`), 
+    GAP => INTERVAL '5' SECONDS) 
+GROUP BY
+  window_start,
+  window_end,
+  merchant;
 ```
 
-Testing Snapshot queries
-https://docs.confluent.io/cloud/current/flink/concepts/snapshot-queries.html#flink-sql-snapshot-queries
+Note that, differently from tumble windows, Session windows can be different for each key (each merchant).
 
-Check Operators used.
-```
-SET 'sql.snapshot.mode' = 'now';
-EXPLAIN
-SELECT
-    t.txn_id,
-    t.amount,
-    t.`timestamp` AS txn_time,
-    c.customer_name,
-    c.created_at AS signup_time
-FROM transactions_faker AS t
-JOIN customers_faker AS c
-    ON t.account_number = c.account_number;
-```
 
-Query doesn't give intermediate results and is in completed status. 
-```
-SET 'sql.snapshot.mode' = 'now';
-SELECT
-    t.txn_id,
-    t.amount,
-    t.`timestamp` AS txn_time,
-    c.customer_name,
-    c.created_at AS signup_time
-FROM transactions_faker AS t
-JOIN customers_faker AS c
-    ON t.account_number = c.account_number;
-```
+### 5 - OVER WINDOW (Alternative Example)
 
-Disable Watermark alignment across partitions
-https://docs.confluent.io/cloud/current/flink/concepts/timely-stream-processing.html#flink-sql-watermarks-watermark-alignment
+We have already seen the usage of aggregations `OVER` an interval of time (a window).
 
-Eliminate any watermark effects. No late data allowed. 
-```
-SET 'sql.tables.scan.watermark-alignment.max-allowed-drift' = '0';
-SET 'sql.tables.scan.idle-timeout' = '500ms';
-SET 'sql.state-ttl' = '5 seconds';
-SELECT
-    t.txn_id,
-    t.amount,
-    t.`timestamp` AS txn_time,
-    c.customer_name,
-    c.created_at AS signup_time
-FROM transactions_faker AS t
-JOIN customers_faker AS c
-    ON t.account_number = c.account_number;
-```
+Let's see another example: count the number of failed payment transactions, for each merchant, in the last minute.
 
-#### HINTS
 
-All the HINTS https://docs.confluent.io/cloud/current/flink/reference/statements/hints.html
-
-Different offset and TTL strategies for topics.
-```
-SELECT /*+ STATE_TTL('t'='10s', 'c'='1h') */
-    t.txn_id,
-    t.amount,
-    t.`timestamp` AS txn_time,
-    c.customer_name,
-    c.created_at AS signup_time
-FROM transactions_faker /*+ OPTIONS('scan.startup.mode'='latest-offset') */  AS t
-JOIN customers_faker /*+ OPTIONS('scan.startup.mode'='earliest-offset') */  AS c 
-    ON t.account_number = c.account_number;
-```
-
-#### ALTER TABLE
-https://docs.confluent.io/cloud/current/flink/reference/statements/alter-table.html
-
-Change table property
-``ALTER TABLE `transactions_faker` SET ('rows-per-second' = '20');``
-
-Modify table metadata
-
-``ALTER TABLE `transactions_faker` 
-MODIFY WATERMARK FOR `timestamp` AS `timestamp` - INTERVAL '10' SECONDS;``
-
-Add computed column
-``ALTER TABLE `transactions_faker` 
-ADD my_time AS  CONVERT_TZ(CAST(`timestamp` AS STRING), 'UTC', 'Europe/Berlin') ;``
-
-`DESCRIBE EXTENDED transactions_faker`
-
-`SELECT * FROM transactions_faker`
-
-Change changelog modes
-``ALTER TABLE `customers_pk` SET ('changelog.mode' = 'append');``
-
-`SELECT * FROM customers_pk`
-
-``ALTER TABLE `customers_pk` SET ('changelog.mode' = 'upsert');``
-
-Changes the scan range on the table
-```
-ALTER TABLE customers_pk SET (
-  'scan.startup.mode' = 'latest-offset'
+```sql
+SELECT 
+  `timestamp`,
+  merchant,
+  COUNT(*) OVER w AS total_tx_failed_last_minute
+FROM `transactions_faker`
+WHERE transaction_type = 'payment' AND status = 'Failed'
+WINDOW w AS (
+  PARTITION BY merchant 
+  ORDER BY `timestamp` 
+  RANGE BETWEEN INTERVAL '1' MINUTE PRECEDING AND CURRENT ROW
 );
 ```
 
-``SHOW CREATE TABLE `customers_pk`;``
+Note that, differently from `GROUP BY` on `TUMBLE` windows, in this case the result is emitted immediately
+when a new matching record is encountered.
 
-#### CTE
-Calculate the total withdrawal amount for each account number. Flag & Filter those transactions which breach the $10000 threshold and also Flag & Filter  those transactions if the total amount spent on a particular currency is more than $6000 in the last 2 hours.
+### 6 - Combining GROUP BY and OVER WINDOW
 
-```
-WITH flagged_withdrawal AS (
-SELECT `account_number`,`currency`,transaction_type,amount,merchant, location,
-    SUM(amount) OVER  w as total_value,
-     CASE WHEN SUM(amount) OVER  w  > '1000' THEN 'YES'
-     ELSE 'NO' END AS FLAG
-    FROM `transactions_faker`
-    WHERE transaction_type = 'withdrawal'
-WINDOW w AS (
- PARTITION BY account_number,transaction_type
-    ORDER BY `timestamp` ASC
-    RANGE BETWEEN INTERVAL '2' HOUR PRECEDING AND CURRENT ROW)
-)
-SELECT * FROM flagged_withdrawal WHERE FLAG = 'YES'
-```
+`GROUP BY` and `OVER` can be combined in the same query.
 
-You can’t include two different OVER() window within the same subquery/query. But creating separate queries to compute this new metric seems futile and redundant. That’s why we leverage an additional CTE to compute metrics over two separate OVER windows.
+For example, we want to:
+1. (group by) count the number of successful transactions every minute, per merchant
+2. (over) compare the count of the current window with the count of the previous window, using the `LAG` function 
 
-```
-WITH flagged_withdrawal_tx AS (
-SELECT `txn_id`,`account_number`,
-    SUM(amount) OVER  w as total_value,
-     CASE WHEN SUM(amount) OVER  w  > '500' THEN 'YES'
-     ELSE 'NO' END AS WITHDRAW_FLAG
-    FROM `transactions_faker`
-    WHERE transaction_type = 'withdrawal' and status = 'Successful'
-WINDOW w AS (
- PARTITION BY account_number,transaction_type
-    ORDER BY `timestamp` ASC
-    RANGE BETWEEN INTERVAL '1' HOUR PRECEDING AND CURRENT ROW)
-),
-flagged_currency_tx AS (
-SELECT `txn_id`,`account_number`,
-    SUM(amount) OVER  w as total_value,
-     CASE WHEN SUM(amount) OVER  w  > '300' THEN 'YES'
-     ELSE 'NO' END AS FX_FLAG
-    FROM `transactions_faker`
-    WHERE transaction_type <> 'refund' and status = 'Successful'
-WINDOW w AS (
- PARTITION BY account_number,currency
-    ORDER BY `timestamp` ASC
-    RANGE BETWEEN INTERVAL '1' HOUR PRECEDING AND CURRENT ROW)
-  
-)
+
+```sql
 SELECT 
-    A.*,
-    B.total_value AS withdrawal_total,
-    COALESCE(B.WITHDRAW_FLAG,'NO') as WITHDRAW_FLAG ,
-    C.total_value AS forex_total,C.FX_FLAG 
-FROM `transactions_faker` A 
-    LEFT JOIN flagged_withdrawal_tx B
-ON A.txn_id = B.txn_id AND A.account_number = B.account_number
-    LEFT JOIN flagged_currency_tx C 
-ON A.txn_id = C.txn_id AND A.account_number = C.account_number
-WHERE WITHDRAW_FLAG = 'YES' OR FX_FLAG = 'YES'
-
+  window_start,
+  window_end,
+  merchant,
+  transaction_type,
+  COUNT(*) as total_successful,
+  LAG(COUNT(*),1) OVER w as prev_total_successful,
+  COUNT(*) - LAG(COUNT(*),1) OVER w as delta
+FROM
+TUMBLE(
+  TABLE `transactions_faker`, 
+  DESCRIPTOR (`timestamp`), 
+  INTERVAL '1' MINUTE
+  )
+WHERE transaction_type ='payment' AND status = 'Successful'
+GROUP BY 
+  window_start, 
+  window_end,
+  window_time,
+  merchant, 
+  transaction_type
+WINDOW w as (
+  PARTITION BY merchant,transaction_type 
+  ORDER BY window_time
+  ) 
 ```
 
-#### VIEWS
-https://docs.confluent.io/cloud/current/flink/reference/statements/create-view.html
+---
 
-Reuse the previous query to define a new View.
-```
-CREATE VIEW flagged_trx_view AS
+### 7 (bonus) - Aggregations, event time, and idle sources
 
-WITH flagged_withdrawal_tx AS (
-SELECT `txn_id`,`account_number`,
-    SUM(amount) OVER  w as total_value,
-     CASE WHEN SUM(amount) OVER  w  > '500' THEN 'YES'
-     ELSE 'NO' END AS WITHDRAW_FLAG
-    FROM `transactions_faker`
-    WHERE transaction_type = 'withdrawal' and status = 'Successful'
-WINDOW w AS (
- PARTITION BY account_number,transaction_type
-    ORDER BY `timestamp` ASC
-    RANGE BETWEEN INTERVAL '1' HOUR PRECEDING AND CURRENT ROW)
-),
-flagged_currency_tx AS (
-SELECT `txn_id`,`account_number`,
-    SUM(amount) OVER  w as total_value,
-     CASE WHEN SUM(amount) OVER  w  > '300' THEN 'YES'
-     ELSE 'NO' END AS FX_FLAG
-    FROM `transactions_faker`
-    WHERE transaction_type <> 'refund' and status = 'Successful'
-WINDOW w AS (
- PARTITION BY account_number,currency
-    ORDER BY `timestamp` ASC
-    RANGE BETWEEN INTERVAL '1' HOUR PRECEDING AND CURRENT ROW)
-  
-)
-SELECT 
-    A.*,
-    B.total_value AS withdrawal_total,
-    COALESCE(B.WITHDRAW_FLAG,'NO') as WITHDRAW_FLAG ,
-    C.total_value AS forex_total,C.FX_FLAG 
-FROM `transactions_faker` A 
-    LEFT JOIN flagged_withdrawal_tx B
-ON A.txn_id = B.txn_id AND A.account_number = B.account_number
-    LEFT JOIN flagged_currency_tx C 
-ON A.txn_id = C.txn_id AND A.account_number = C.account_number
-WHERE WITHDRAW_FLAG = 'YES' OR FX_FLAG = 'YES'
-```
+In Flink, many aggregations depend on the continuous flow of new events. In particular event-time based aggregations.
+If one of the sources is idle, event-time may not progress and you may see no result emitted, regardless other sources are receiving data.
 
-`SHOW CREATE VIEW flagged_trx_view`
+To ensure data is regularly emitted, you may employ the so called *Heartbeat pattern*. 
+Practically, an additional source of data which regularly emits dummy events. These dummy events are disregarded in the calculations but allow the time to progress.
 
-`DESCRIBE  flagged_trx_view`
+See [Heartbeat pattern](https://github.com/charmon79/cc-flink-demos/blob/main/patterns/heartbeat-pattern.md) for an explanation and example of this pattern.
 
-Use the View in a Select statement
-```
-SELECT 
-  txn_id,
-  account_number,
-  CONCAT('Dear user ', CAST(account_number AS STRING),',
-  your transaction of ',CAST(amount AS STRING),
-  ' cannot be processed due to lack of ',CAST(currency AS STRING),' balance avilable on your card.') as message
-FROM `flagged_trx_view` 
-  WHERE `WITHDRAW_FLAG` = 'YES';
-```
+---
+---
 
+Next: [Lab 4: Options and SQL Hints, VIEWS & ALTER TABLE](lab4.md)

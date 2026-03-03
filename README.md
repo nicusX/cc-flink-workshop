@@ -24,3 +24,4 @@ Navigate through the following labs to complete the practical exercises:
 | **[Lab 4: Hints & Views](lab4.md)** | **SQL Hints, Views, and Table Options** | Using `HINTS` for statement improvement, creating `VIEW`s, Common Table Expressions (CTE), and setting table options. |
 | **[Lab 5: Changelogs and Operators](lab5.md)** | **Changelog Modes & State-intensive Operators** | Understanding changelog modes, operators and their state impact. |
 | **[Lab 6: Statement Operations](lab6.md)** | **Error Handling & Statement Operations** | Custom error handling with DLQ, Carry-over Offset for statement replacement. |
+| **[Lab 7: Table API Examples](lab7.md)** | **Java Table API Implementation** | Java Table API examples for aggregations and windowing from Lab 3, including complete data pipelines. |

@@ -1,0 +1,19 @@
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# Build
+target/
+*.class
+*.jar
+
+# Credentials and secrets
+cloud.properties
+*.env
+*.secret
+
+# OS
+.DS_Store

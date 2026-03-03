@@ -1,0 +1,26 @@
+#####################################################################
+# Confluent Cloud Connection Configuration - TEMPLATE               #
+#                                                                   #
+# Copy this file to cloud.properties and fill in your credentials   #
+#####################################################################
+
+# Cloud region
+client.cloud=aws
+client.region=eu-central-1
+
+# Access & compute resources
+client.flink-api-key=<YOUR_FLINK_API_KEY>
+client.flink-api-secret=<YOUR_FLINK_API_SECRET>
+client.organization-id=<YOUR_ORG_ID>
+client.environment-id=<YOUR_ENV_ID>
+client.compute-pool-id=<YOUR_POOL_ID>
+
+# User or service account
+client.principal-id=<YOUR_PRINCIPAL_ID>
+
+# Required if requests are proxied
+client.rest-endpoint=confluent.cloud
+
+# Secrets required for uploading function artifacts
+client.artifact-api-key=<YOUR_ARTIFACT_API_KEY>
+client.artifact-api-secret=<YOUR_ARTIFACT_API_SECRET>

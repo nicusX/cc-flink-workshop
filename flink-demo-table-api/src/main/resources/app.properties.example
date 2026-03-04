@@ -1,0 +1,10 @@
+#####################################################################
+# Application Configuration - TEMPLATE                              #
+#                                                                   #
+# Copy this file to app.properties and fill in your values          #
+#####################################################################
+
+# Target catalog and database for table creation
+# Fill these with a catalog and database you have write access to
+target.catalog=<YOUR_CATALOG>
+target.database=<YOUR_DATABASE>

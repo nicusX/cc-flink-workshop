@@ -66,12 +66,12 @@ public class OverWindowAggregation {
                 // Define the window specification for OVER clause
                 // PARTITION BY account_number, transaction_type
                 // ORDER BY timestamp ASC
-                // ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                // RANGE BETWEEN INTERVAL '1' HOUR PRECEDING AND CURRENT ROW
+                // Note: Confluent Cloud supports RANGE PRECEDING only (without FOLLOWING)
                 .window(
                         Over.partitionBy($("account_number"), $("transaction_type"))
                             .orderBy($("timestamp"))
-                            .preceding(UNBOUNDED_ROW)
-                            .following(CURRENT_ROW)
+                            .preceding(lit(1).hours())
                             .as("w")
                 )
 

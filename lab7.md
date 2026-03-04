@@ -17,6 +17,8 @@ All examples are located in:
 flink-demo-table-api/src/main/java/io/confluent/flink/table/lab3/
 ```
 
+For a complete reference of available Table API functions and operators, see the [Confluent Cloud Flink Table API Functions documentation](https://docs.confluent.io/cloud/current/flink/reference/functions/table-api-functions.html).
+
 ### 1 - GROUP BY Aggregation (Table API)
 
 **File:** [`GroupByAggregation.java`](./flink-demo-table-api/src/main/java/io/confluent/flink/table/lab3/GroupByAggregation.java)

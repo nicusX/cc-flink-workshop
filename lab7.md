@@ -95,20 +95,21 @@ Implements the OVER window aggregation for running totals.
 Demonstrates:
 - Defining window specifications with `.window()`
 - Partitioning and ordering within windows
-- Using row-based bounds (UNBOUNDED PRECEDING to CURRENT ROW)
+- Using time-based bounds with `preceding()` (RANGE PRECEDING)
 - Aggregating over windows with `.over()`
 - Conditional expressions with `ifThenElse()`
 
 Key features:
 - Emits a result for **every incoming record** (not batched)
-- State impact is **low** due to bounded window size
-- No TTL needed since the window is time-bounded
+- Uses a **time-based (range) window** of 1 hour looking backward
+- State impact is **moderate** due to the 1-hour time window
+- Automatically manages state expiration based on watermarks
+- Confluent Cloud supports RANGE PRECEDING only (RANGE FOLLOWING not yet supported)
 
 ```java
 .window(Over.partitionBy($("account_number"), $("transaction_type"))
     .orderBy($("timestamp"))
-    .preceding(UNBOUNDED_ROW)
-    .following(CURRENT_ROW)
+    .preceding(lit(1).hours())
     .as("w"))
 .select(
     $("amount").sum().over($("w")).as("total_value"),

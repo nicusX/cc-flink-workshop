@@ -18,6 +18,8 @@ import io.confluent.flink.plugin.ConfluentTools;
 import org.apache.flink.table.api.*;
 import static org.apache.flink.table.api.Expressions.*;
 
+import java.io.IOException;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -28,9 +30,6 @@ import java.util.concurrent.ExecutionException;
  */
 public class GroupByAggregationPipeline {
 
-    // Fill this with an environment you have write access to
-    static final String TARGET_CATALOG = "";
-    static final String TARGET_DATABASE = "";
 
     // Output table name
     static final String OUTPUT_TABLE = "withdrawal_aggregations";
@@ -42,10 +41,27 @@ public class GroupByAggregationPipeline {
         settings.setOption("sql.local-time-zone", "UTC");
         settings.setContextName("table-api-demo");
 
+        // Read target catalog and database from app.properties
+        Properties appProps = new Properties();
+        String catalog = "";
+        String database = "";
+        try {
+            appProps.load(GroupByAggregationPipeline.class.getResourceAsStream("/app.properties"));
+            catalog = appProps.getProperty("target.catalog", "");
+            database = appProps.getProperty("target.database", "");
+        } catch (IOException e) {
+            System.err.println("Warning: Could not load app.properties");
+        }
+
         // 1. Set up the Table Environment and point to your Kafka cluster
         TableEnvironment env = TableEnvironment.create(settings.build());
-        env.useCatalog(TARGET_CATALOG);
-        env.useDatabase(TARGET_DATABASE);
+
+        if (!catalog.isEmpty()) {
+            env.useCatalog(catalog);
+        }
+        if (!database.isEmpty()) {
+            env.useDatabase(database);
+        }
 
         System.out.println("Creating output table: " + OUTPUT_TABLE);
 

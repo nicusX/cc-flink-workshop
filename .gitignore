@@ -1,0 +1,28 @@
+# IDE and Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+
+# Maven
+dependency-reduced-pom.xml
+.m2/
+
+# Gradle
+build/
+.gradle/
+
+# Local configuration
+*.properties
+!*.example
+CLAUDE.md

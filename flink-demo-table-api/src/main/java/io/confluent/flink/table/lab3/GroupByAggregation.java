@@ -20,6 +20,9 @@ import io.confluent.flink.plugin.ConfluentTools;
 import org.apache.flink.table.api.*;
 import static org.apache.flink.table.api.Expressions.$;
 
+import java.io.IOException;
+import java.util.Properties;
+
 public class GroupByAggregation {
 
     public static void main(String[] args) throws Exception {
@@ -29,10 +32,27 @@ public class GroupByAggregation {
         settings.setOption("sql.local-time-zone", "UTC");
         settings.setContextName("table-api-demo");
 
+        // Read target catalog and database from app.properties
+        Properties appProps = new Properties();
+        String catalog = "";
+        String database = "";
+        try {
+            appProps.load(GroupByAggregation.class.getResourceAsStream("/app.properties"));
+            catalog = appProps.getProperty("target.catalog", "");
+            database = appProps.getProperty("target.database", "");
+        } catch (IOException e) {
+            System.err.println("Warning: Could not load app.properties");
+        }
+
         // 1. Set up the Table Environment and point to your Kafka cluster
         TableEnvironment env = TableEnvironment.create(settings.build());
-        env.useCatalog("");
-        env.useDatabase("");
+
+        if (!catalog.isEmpty()) {
+            env.useCatalog(catalog);
+        }
+        if (!database.isEmpty()) {
+            env.useDatabase(database);
+        }
 
         // 2. Reference the table
         Table transactions = env.from("transactions_faker");

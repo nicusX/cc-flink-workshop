@@ -2,7 +2,7 @@
 
 In this lab we will learn how to detect complex event patterns in streaming data using the `MATCH_RECOGNIZE` clause.
 
-`MATCH_RECOGNIZE` is a powerful SQL extension (ISO/IEC TR 19075-5) that allows you to detect sequences of events in a stream — for example, fraud patterns, behavioral anomalies, or multi-step workflows spanning multiple records.
+`MATCH_RECOGNIZE` is a powerful SQL extension that allows you to detect sequences of events in a stream — for example, fraud patterns, behavioral anomalies, or multi-step workflows spanning multiple records.
 
 ### Prerequisites
 

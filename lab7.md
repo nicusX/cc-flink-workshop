@@ -169,3 +169,5 @@ The examples use `cloud.properties` for Confluent Cloud connection configuration
 
 ---
 
+Next: [Lab 8: Pattern Matching with MATCH_RECOGNIZE](lab8.md)
+

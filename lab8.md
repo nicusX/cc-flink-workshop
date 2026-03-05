@@ -41,8 +41,6 @@ Key concepts:
 - **AFTER MATCH SKIP**: Controls where to resume pattern matching after a match is found
 - **WITHIN**: Bounds the time window within which the full pattern must occur
 
-> ℹ `MATCH_RECOGNIZE` must be applied to a named table or view. Inline subqueries are not supported as direct input. Throughout this lab we use views to pre-filter the stream before pattern matching.
-
 ---
 
 ### 0 - Create Source Views
@@ -100,8 +98,6 @@ MATCH_RECOGNIZE (
 - `AFTER MATCH SKIP PAST LAST ROW`: After a match, skip past the last matched event to avoid overlapping detections
 
 > ℹ The `?` after the quantifier makes it **reluctant** (non-greedy). A reluctant quantifier fires as soon as the minimum count is satisfied (3 failures here), rather than waiting for a non-matching event to terminate the sequence. Flink requires the last element of a pattern to be either a simple variable or a reluctant quantifier.
-
-> ⚠️ Results are emitted when the pattern completes (i.e., after a non-failed payment or after the `WITHIN` timeout expires). You may need to wait up to 1 minute before the first results appear.
 
 ---
 
@@ -177,4 +173,3 @@ MATCH_RECOGNIZE (
 
 ---
 
-Next: [Lab 9: Deduplication](lab9.md)

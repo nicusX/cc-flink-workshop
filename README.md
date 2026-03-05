@@ -25,3 +25,5 @@ Navigate through the following labs to complete the practical exercises:
 | **[Lab 5: Changelogs and Operators](lab5.md)** | **Changelog Modes & State-intensive Operators** | Understanding changelog modes, operators and their state impact. |
 | **[Lab 6: Statement Operations](lab6.md)** | **Error Handling & Statement Operations** | Custom error handling with DLQ, Carry-over Offset for statement replacement. |
 | **[Lab 7: Table API Examples](lab7.md)** | **Java Table API Implementation** | Java Table API examples for aggregations and windowing from Lab 3, including complete data pipelines. |
+| **[Lab 8: Pattern Matching](lab8.md)** | **MATCH_RECOGNIZE & CEP** | Detecting complex event patterns in streams using `MATCH_RECOGNIZE`: consecutive failures, fraud sequences, escalating amounts, and sinking alerts to a table. |
+

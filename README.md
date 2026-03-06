@@ -9,9 +9,9 @@ Welcome to the hands-on portion of our Flink SQL workshop. This repository conta
 * Basic understanding of SQL syntax.
 * A MongoDB account, a free MongoDB cluster with sample data (required for [Lab 2, Lookup joins](./lab2.md#5---lookup-joins) only).
   See [MongoDB setup](mongodb-setup.md) instructions.
-* A Google AI API key (required for [Lab 9](./lab9.md) only) — generate one at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
-* Java 11 and Maven (required for [Lab 7](./lab7.md) and [Lab 9](./lab9.md) only).
-* Confluent CLI installed and logged in (required for [Lab 9](./lab9.md) only).
+* A Google AI API key (required for [Lab 10](./lab10.md) only) — generate one at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
+* Java 11 and Maven (required for [Lab 7](./lab7.md), [Lab 8](./lab8.md) and [Lab 10](./lab10.md) only).
+* Confluent CLI installed and logged in (required for [Lab 10](./lab10.md) only).
 
 ---
 
@@ -28,6 +28,7 @@ Navigate through the following labs to complete the practical exercises:
 | **[Lab 5: Changelogs and Operators](lab5.md)** | **Changelog Modes & State-intensive Operators** | Understanding changelog modes, operators and their state impact. |
 | **[Lab 6: Statement Operations](lab6.md)** | **Error Handling & Statement Operations** | Custom error handling with DLQ, Carry-over Offset for statement replacement. |
 | **[Lab 7: Table API Examples](lab7.md)** | **Java Table API Implementation** | Java Table API examples for aggregations and windowing from Lab 3, including complete data pipelines. |
-| **[Lab 8: Pattern Matching](lab8.md)** | **MATCH_RECOGNIZE & CEP** | Detecting complex event patterns in streams using `MATCH_RECOGNIZE`: consecutive failures, fraud sequences, escalating amounts, and sinking alerts to a table. |
-| **[Lab 9: AI Models & Agents](lab9.md)** | **Confluent Intelligence** | Real-time AI inference with `ML_PREDICT` (Gemini fraud classifier), and autonomous streaming agents with `AI_RUN_AGENT` backed by a custom Java UDF tool. |
+| **[Lab 8: UDF](lab8.md)** | **User Defined Functions** | Implementing User Defined Functions (UDF) and User Defined Table Functions (UDTF) in Java. |
+| **[Lab 9: Pattern Matching](lab9.md)** | **MATCH_RECOGNIZE & CEP** | Detecting complex event patterns in streams using `MATCH_RECOGNIZE`: consecutive failures, fraud sequences, escalating amounts, and sinking alerts to a table. |
+| **[Lab 10: AI Models & Agents](lab10.md)** | **Confluent Intelligence** | Real-time AI inference with `ML_PREDICT` (Gemini fraud classifier), and autonomous streaming agents with `AI_RUN_AGENT` backed by a custom Java UDF tool. |
 

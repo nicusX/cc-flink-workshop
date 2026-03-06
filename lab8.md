@@ -173,3 +173,4 @@ MATCH_RECOGNIZE (
 
 ---
 
+Next: [Lab 9: AI Model Inference and Streaming Agents](lab9.md)

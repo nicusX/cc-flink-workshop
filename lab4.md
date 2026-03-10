@@ -25,6 +25,7 @@ For example:
 SET 'sql.state-ttl' = '2d';
 SET 'sql.tables.scan.startup.mode' = 'latest-offset';
 SET 'sql.local-time-zone' = 'CET';
+SET 'client.statement-name' = 'my-favorite-statement';
 SELECT
     t.txn_id,
     t.amount,
